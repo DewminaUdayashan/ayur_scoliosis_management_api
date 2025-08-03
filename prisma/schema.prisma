@@ -1,0 +1,185 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Core Models ---
+
+model AppUser {
+  id           String        @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String        @unique
+  passwordHash String
+  role         UserRole
+  practitioner Practitioner?
+  patient      Patient?
+  appointmentsAsPatient      Appointment[] @relation("PatientAppointments")
+  appointmentsAsPractitioner Appointment[] @relation("PractitionerAppointments")
+  notifications              Notification[]
+  createdEvents              PatientEvent[] @relation("CreatedByPractitioner")
+  patientEvents              PatientEvent[] @relation("PatientTimeline")
+}
+
+model Practitioner {
+  appUser         AppUser       @relation(fields: [appUserId], references: [id])
+  appUserId       String        @id
+  phone           String
+  specialty       String
+  medicalLicense  String
+  status          AccountStatus @default(Pending)
+  clinic          Clinic?       @relation(fields: [clinicId], references: [id])
+  clinicId        String?
+}
+
+model Patient {
+  appUser         AppUser  @relation(fields: [appUserId], references: [id])
+  appUserId       String   @id
+  profileImageUrl String?
+  dateOfBirth     DateTime @db.Date
+  gender          String
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
+  clinicId        String?
+}
+
+model Clinic {
+  id           String         @id @default(uuid())
+  name         String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  email        String
+  phone        String
+  imageUrl     String?
+  practitioners Practitioner[]
+  patients      Patient[]
+}
+
+// --- Scheduling & Timeline ---
+
+model Appointment {
+  id                  String            @id @default(uuid())
+  patient             AppUser           @relation("PatientAppointments", fields: [patientId], references: [id])
+  patientId           String
+  practitioner        AppUser           @relation("PractitionerAppointments", fields: [practitionerId], references: [id])
+  practitionerId      String
+  appointmentDateTime DateTime
+  durationInMinutes   Int
+  type                AppointmentType
+  status              AppointmentStatus
+  notes               String?
+  patientEvent        PatientEvent[]
+}
+
+model PatientEvent {
+  id                    String                  @id @default(uuid())
+  patient               AppUser                 @relation("PatientTimeline", fields: [patientId], references: [id])
+  patientId             String
+  createdByPractitioner AppUser                 @relation("CreatedByPractitioner", fields: [createdByPractitionerId], references: [id])
+  createdByPractitionerId String
+  eventType             EventType
+  eventDateTime         DateTime
+  isSharedWithPatient   Boolean
+  appointment           Appointment?            @relation(fields: [appointmentId], references: [id])
+  appointmentId         String?                 @unique
+  xrayImages            XRayImage[]
+  aiResults             AIClassificationResult[]
+  measurements          ScoliosisMeasurement[]
+  sessionNotes          SessionNote[]
+  notifications         Notification[]
+}
+
+model Notification {
+  id             String        @id @default(uuid())
+  recipient      AppUser       @relation(fields: [recipientId], references: [id])
+  recipientId    String
+  title          String
+  message        String
+  isRead         Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  relatedEvent   PatientEvent? @relation(fields: [relatedEventId], references: [id])
+  relatedEventId String?
+}
+
+// Other related models would go here...
+model XRayImage {
+  id             String       @id @default(uuid())
+  patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
+  patientEventId String
+  imageUrl       String
+  notes          String?
+}
+
+model AIClassificationResult {
+  id                   String               @id @default(uuid())
+  patientEvent         PatientEvent         @relation(fields: [patientEventId], references: [id])
+  patientEventId       String
+  classificationResult AIClassificationType
+  confidenceScore      Decimal
+  notes                String?
+}
+
+model ScoliosisMeasurement {
+  id             String       @id @default(uuid())
+  patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
+  patientEventId String
+  cobbAngle      Decimal
+  rotationAngle  Decimal
+  notes          String?
+}
+
+model SessionNote {
+  id             String       @id @default(uuid())
+  patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
+  patientEventId String
+  noteContent    String
+}
+
+// --- Enums ---
+
+enum UserRole {
+  Patient
+  Practitioner
+}
+
+enum AccountStatus {
+  Pending
+  Active
+  Inactive
+  Suspended
+}
+
+enum AppointmentType {
+  Physical
+  Remote
+}
+
+enum AppointmentStatus {
+  Scheduled
+  Completed
+  Cancelled
+  NoShow
+}
+
+enum EventType {
+  AppointmentCompleted
+  XRayUpload
+  AIClassification
+  CobbAngleMeasurement
+  SessionNote
+}
+
+enum AIClassificationType {
+  NoScoliosisDetected
+  ScoliosisCCurve
+  ScoliosisSCurve
+  NotASpinalXray
+  NoXrayDetected
+  AnalysisFailed
+}
