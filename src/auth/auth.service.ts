@@ -26,7 +26,7 @@ export class AuthService {
       phone,
       specialty,
       medicalLicense,
-      clinicId,
+      clinic,
     } = createPractitionerDto;
 
     const existingUser = await this.prisma.appUser.findUnique({
@@ -39,6 +39,12 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Create the clinic first
+    const newClinic = await this.prisma.clinic.create({
+      data: clinic,
+    });
+
+    // Now create the AppUser and the nested Practitioner, using the new clinic's ID
     const newPractitioner = await this.prisma.appUser.create({
       data: {
         firstName,
@@ -52,12 +58,16 @@ export class AuthService {
             specialty,
             medicalLicense,
             status: 'Pending',
-            clinicId,
+            clinicId: newClinic.id, // Use the ID from the newly created clinic
           },
         },
       },
       include: {
-        practitioner: true,
+        practitioner: {
+          include: {
+            clinic: true, // Include the clinic details in the response
+          },
+        },
       },
     });
 
