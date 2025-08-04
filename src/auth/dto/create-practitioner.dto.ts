@@ -1,100 +1,116 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import {
   IsString,
   IsEmail,
   IsNotEmpty,
   MinLength,
-  ValidateNested,
   IsOptional,
 } from 'class-validator';
 
 /**
- * DTO for the nested clinic object.
- * This defines the shape of the clinic data required during practitioner registration.
- */
-export class ClinicDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  addressLine1: string;
-
-  @ApiProperty()
-  @IsString()
-  addressLine2?: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  city: string;
-
-  @ApiProperty()
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  phone: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  imageUrl?: string;
-}
-
-/**
- * Main DTO for practitioner registration.
- * Includes the practitioner's details and the nested clinic information.
+ * DTO for practitioner registration with a flattened structure for clinic data.
+ * This structure is optimized for multipart/form-data and provides a better
+ * experience in Swagger UI by showing each field individually.
  */
 export class CreatePractitionerDto {
-  @ApiProperty()
+  // --- Practitioner Fields ---
+  @ApiProperty({ example: 'practitioner@example.com' })
   @IsEmail()
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'password123' })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
   password: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'John' })
   @IsString()
   @IsNotEmpty()
   firstName: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Doe' })
   @IsString()
   @IsNotEmpty()
   lastName: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '123-456-7890' })
   @IsString()
   @IsNotEmpty()
   phone: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Scoliosis Specialist' })
   @IsString()
   @IsNotEmpty()
   specialty: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'MD12345' })
   @IsString()
   @IsNotEmpty()
   medicalLicense: string;
 
-  @ApiProperty()
-  // This tells class-validator to validate the nested clinic object
-  @ValidateNested()
-  // This helps class-transformer to correctly instantiate the nested DTO
-  @Type(() => ClinicDto)
+  // --- Clinic Fields (Flattened) ---
+  @ApiProperty({
+    description: 'Name of the clinic',
+    example: 'Ayurveda Wellness Center',
+  })
+  @IsString()
   @IsNotEmpty()
-  clinic: ClinicDto;
+  clinicName: string;
+
+  @ApiProperty({
+    description: 'Address line 1 of the clinic',
+    example: '123 Wellness Way',
+  })
+  @IsString()
+  @IsNotEmpty()
+  clinicAddressLine1: string;
+
+  @ApiProperty({
+    description: 'Address line 2 of the clinic',
+    required: false,
+    example: 'Suite 100',
+  })
+  @IsOptional()
+  @IsString()
+  clinicAddressLine2?: string;
+
+  @ApiProperty({ description: 'City of the clinic', example: 'Healthville' })
+  @IsString()
+  @IsNotEmpty()
+  clinicCity: string;
+
+  @ApiProperty({
+    description: 'Email of the clinic',
+    example: 'contact@ayurvedawellness.com',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  clinicEmail: string;
+
+  @ApiProperty({
+    description: 'Phone number of the clinic',
+    example: '987-654-3210',
+  })
+  @IsString()
+  @IsNotEmpty()
+  clinicPhone: string;
+
+  // --- File Upload Fields ---
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    required: false,
+    description: 'Optional profile image for the practitioner.',
+  })
+  profileImage?: any;
+
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    required: false,
+    description: 'Optional image for the clinic.',
+  })
+  clinicImage?: any;
 }

@@ -17,6 +17,7 @@ model AppUser {
   email                      String         @unique
   passwordHash               String
   role                       UserRole
+  profileImageUrl            String? // Added optional profile image URL
   practitioner               Practitioner?
   patient                    Patient?
   appointmentsAsPatient      Appointment[]  @relation("PatientAppointments")

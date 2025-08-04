@@ -5,10 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreatePractitionerDto } from './dto/create-practitioner.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { CreatePractitionerDto } from './dto/create-practitioner.dto';
 
 @Injectable()
 export class AuthService {
@@ -17,7 +17,11 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async registerPractitioner(createPractitionerDto: CreatePractitionerDto) {
+  async registerPractitioner(
+    createPractitionerDto: CreatePractitionerDto,
+    imageUrls: { profileImageUrl?: string; clinicImageUrl?: string },
+  ) {
+    // Destructure all fields from the flattened DTO
     const {
       email,
       password,
@@ -26,7 +30,12 @@ export class AuthService {
       phone,
       specialty,
       medicalLicense,
-      clinic,
+      clinicName,
+      clinicAddressLine1,
+      clinicAddressLine2,
+      clinicCity,
+      clinicEmail,
+      clinicPhone,
     } = createPractitionerDto;
 
     const existingUser = await this.prisma.appUser.findUnique({
@@ -39,12 +48,20 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create the clinic first
+    // Create the clinic first using the destructured clinic fields
     const newClinic = await this.prisma.clinic.create({
-      data: clinic,
+      data: {
+        name: clinicName,
+        addressLine1: clinicAddressLine1,
+        addressLine2: clinicAddressLine2,
+        city: clinicCity,
+        email: clinicEmail,
+        phone: clinicPhone,
+        imageUrl: imageUrls.clinicImageUrl,
+      },
     });
 
-    // Now create the AppUser and the nested Practitioner, using the new clinic's ID
+    // Now create the AppUser and the nested Practitioner
     const newPractitioner = await this.prisma.appUser.create({
       data: {
         firstName,
@@ -52,26 +69,26 @@ export class AuthService {
         email,
         passwordHash: hashedPassword,
         role: 'Practitioner',
+        profileImageUrl: imageUrls.profileImageUrl,
         practitioner: {
           create: {
             phone,
             specialty,
             medicalLicense,
             status: 'Pending',
-            clinicId: newClinic.id, // Use the ID from the newly created clinic
+            clinicId: newClinic.id,
           },
         },
       },
       include: {
         practitioner: {
           include: {
-            clinic: true, // Include the clinic details in the response
+            clinic: true,
           },
         },
       },
     });
 
-    // Exclude password from the returned object
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...result } = newPractitioner;
     return result;

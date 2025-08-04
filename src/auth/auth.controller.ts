@@ -7,22 +7,58 @@ import {
   UseGuards,
   Get,
   HttpStatus,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { CreatePractitionerDto } from './dto/create-practitioner.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetUser } from './decorators/user.decorator';
-import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AppUser } from '@prisma/client';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
-@ApiTags('Authentication') // This groups all endpoints under the 'Authentication' tag in Swagger
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register/practitioner')
-  @ApiBody({ type: CreatePractitionerDto })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'profileImage', maxCount: 1 },
+        { name: 'clinicImage', maxCount: 1 },
+      ],
+      {
+        storage: diskStorage({
+          destination: './uploads',
+          filename: (req, file, cb) => {
+            const randomName = Array(32)
+              .fill(null)
+              .map(() => Math.round(Math.random() * 16).toString(16))
+              .join('');
+            return cb(null, `${randomName}${extname(file.originalname)}`);
+          },
+        }),
+      },
+    ),
+  )
+  @ApiBody({
+    description:
+      'Practitioner and Clinic registration data. All fields except for the images are required.',
+    type: CreatePractitionerDto,
+  })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'The practitioner has been successfully created.',
@@ -31,8 +67,27 @@ export class AuthController {
     status: HttpStatus.CONFLICT,
     description: 'A user with this email already exists.',
   })
-  registerPractitioner(@Body() createPractitionerDto: CreatePractitionerDto) {
-    return this.authService.registerPractitioner(createPractitionerDto);
+  registerPractitioner(
+    @UploadedFiles()
+    files: {
+      profileImage?: Express.Multer.File[];
+      clinicImage?: Express.Multer.File[];
+    },
+    @Body() body: CreatePractitionerDto,
+  ) {
+    const profileImageUrl = files.profileImage
+      ? `/uploads/${files.profileImage[0].filename}`
+      : undefined;
+    const clinicImageUrl = files.clinicImage
+      ? `/uploads/${files.clinicImage[0].filename}`
+      : undefined;
+
+    // The controller now passes the flattened DTO directly to the service.
+    // The service will be responsible for handling the flattened data.
+    return this.authService.registerPractitioner(body, {
+      profileImageUrl,
+      clinicImageUrl,
+    });
   }
 
   @Post('login/practitioner')
@@ -50,7 +105,7 @@ export class AuthController {
   }
 
   @Patch('practitioner/:id/activate')
-  @ApiBearerAuth() // Indicates that this endpoint requires a Bearer token
+  // @ApiBearerAuth()
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles(UserRole.Admin)
   @ApiResponse({
@@ -70,7 +125,7 @@ export class AuthController {
   }
 
   @Get('profile')
-  @ApiBearerAuth() // Indicates that this endpoint requires a Bearer token
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiResponse({
     status: HttpStatus.OK,
