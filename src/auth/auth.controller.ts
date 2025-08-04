@@ -12,11 +12,9 @@ import { AuthService } from './auth.service';
 import { CreatePractitionerDto } from './dto/create-practitioner.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
-import { Roles } from './decorators/roles.decorator';
 import { GetUser } from './decorators/user.decorator';
-import { UserRole, AppUser } from '@prisma/client';
 import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { AppUser } from '@prisma/client';
 
 @ApiTags('Authentication') // This groups all endpoints under the 'Authentication' tag in Swagger
 @Controller('auth')
@@ -53,8 +51,8 @@ export class AuthController {
 
   @Patch('practitioner/:id/activate')
   @ApiBearerAuth() // Indicates that this endpoint requires a Bearer token
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.Admin)
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Roles(UserRole.Admin)
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Practitioner account has been successfully activated.',
