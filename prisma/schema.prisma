@@ -1,4 +1,5 @@
-// prisma/schema.prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -9,59 +10,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- Core Models ---
-
 model AppUser {
-  id           String        @id @default(uuid())
-  firstName    String
-  lastName     String
-  email        String        @unique
-  passwordHash String
-  role         UserRole
-  practitioner Practitioner?
-  patient      Patient?
-  appointmentsAsPatient      Appointment[] @relation("PatientAppointments")
-  appointmentsAsPractitioner Appointment[] @relation("PractitionerAppointments")
-  notifications              Notification[]
-  createdEvents              PatientEvent[] @relation("CreatedByPractitioner")
-  patientEvents              PatientEvent[] @relation("PatientTimeline")
+  id                         String         @id @default(uuid())
+  firstName                  String
+  lastName                   String
+  email                      String         @unique
+  passwordHash               String
+  role                       UserRole
+  practitioner               Practitioner?
+  patient                    Patient?
+  appointmentsAsPatient      Appointment[]  @relation("PatientAppointments")
+  appointmentsAsPractitioner Appointment[]  @relation("PractitionerAppointments")
+  notifications              Notification[] @relation("UserNotifications")
+  eventsAsPatient            PatientEvent[] @relation("EventsForPatient")
+  eventsCreatedBy            PatientEvent[] @relation("EventsCreatedByPractitioner")
 }
 
 model Practitioner {
-  appUser         AppUser       @relation(fields: [appUserId], references: [id])
-  appUserId       String        @id
-  phone           String
-  specialty       String
-  medicalLicense  String
-  status          AccountStatus @default(Pending)
-  clinic          Clinic?       @relation(fields: [clinicId], references: [id])
-  clinicId        String?
+  appUser        AppUser @relation(fields: [appUserId], references: [id])
+  appUserId      String  @id @unique
+  phone          String
+  specialty      String
+  medicalLicense String
+  status         AccountStatus
+  clinic         Clinic  @relation(fields: [clinicId], references: [id])
+  clinicId       String
 }
 
 model Patient {
   appUser         AppUser  @relation(fields: [appUserId], references: [id])
-  appUserId       String   @id
+  appUserId       String   @id @unique
   profileImageUrl String?
-  dateOfBirth     DateTime @db.Date
+  dateOfBirth     DateTime
   gender          String
-  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
-  clinicId        String?
+  clinic          Clinic   @relation(fields: [clinicId], references: [id])
+  clinicId        String
 }
 
 model Clinic {
-  id           String         @id @default(uuid())
-  name         String
-  addressLine1 String
-  addressLine2 String?
-  city         String
-  email        String
-  phone        String
-  imageUrl     String?
+  id            String         @id @default(uuid())
+  name          String
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  email         String
+  phone         String
+  imageUrl      String?
   practitioners Practitioner[]
   patients      Patient[]
 }
-
-// --- Scheduling & Timeline ---
 
 model Appointment {
   id                  String            @id @default(uuid())
@@ -77,37 +74,36 @@ model Appointment {
   patientEvent        PatientEvent[]
 }
 
-model PatientEvent {
-  id                    String                  @id @default(uuid())
-  patient               AppUser                 @relation("PatientTimeline", fields: [patientId], references: [id])
-  patientId             String
-  createdByPractitioner AppUser                 @relation("CreatedByPractitioner", fields: [createdByPractitionerId], references: [id])
-  createdByPractitionerId String
-  eventType             EventType
-  eventDateTime         DateTime
-  isSharedWithPatient   Boolean
-  appointment           Appointment?            @relation(fields: [appointmentId], references: [id])
-  appointmentId         String?                 @unique
-  xrayImages            XRayImage[]
-  aiResults             AIClassificationResult[]
-  measurements          ScoliosisMeasurement[]
-  sessionNotes          SessionNote[]
-  notifications         Notification[]
-}
-
 model Notification {
   id             String        @id @default(uuid())
-  recipient      AppUser       @relation(fields: [recipientId], references: [id])
+  recipient      AppUser       @relation("UserNotifications", fields: [recipientId], references: [id])
   recipientId    String
   title          String
   message        String
   isRead         Boolean       @default(false)
   createdAt      DateTime      @default(now())
   relatedEvent   PatientEvent? @relation(fields: [relatedEventId], references: [id])
-  relatedEventId String?
+  relatedEventId String?       @unique
 }
 
-// Other related models would go here...
+model PatientEvent {
+  id                      String                   @id @default(uuid())
+  patient                 AppUser                  @relation("EventsForPatient", fields: [patientId], references: [id])
+  patientId               String
+  createdByPractitioner   AppUser                  @relation("EventsCreatedByPractitioner", fields: [createdByPractitionerId], references: [id])
+  createdByPractitionerId String
+  eventType               EventType
+  eventDateTime           DateTime
+  isSharedWithPatient     Boolean
+  appointment             Appointment?             @relation(fields: [appointmentId], references: [id])
+  appointmentId           String?                  @unique
+  xrayImages              XRayImage[]
+  aiClassificationResult  AIClassificationResult?
+  scoliosisMeasurement    ScoliosisMeasurement?
+  sessionNote             SessionNote?
+  notification            Notification?
+}
+
 model XRayImage {
   id             String       @id @default(uuid())
   patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
@@ -117,9 +113,9 @@ model XRayImage {
 }
 
 model AIClassificationResult {
-  id                   String               @id @default(uuid())
-  patientEvent         PatientEvent         @relation(fields: [patientEventId], references: [id])
-  patientEventId       String
+  id                   String                 @id @default(uuid())
+  patientEvent         PatientEvent           @relation(fields: [patientEventId], references: [id])
+  patientEventId       String                 @unique
   classificationResult AIClassificationType
   confidenceScore      Decimal
   notes                String?
@@ -128,7 +124,7 @@ model AIClassificationResult {
 model ScoliosisMeasurement {
   id             String       @id @default(uuid())
   patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
-  patientEventId String
+  patientEventId String       @unique
   cobbAngle      Decimal
   rotationAngle  Decimal
   notes          String?
@@ -137,22 +133,14 @@ model ScoliosisMeasurement {
 model SessionNote {
   id             String       @id @default(uuid())
   patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
-  patientEventId String
+  patientEventId String       @unique
   noteContent    String
 }
-
-// --- Enums ---
 
 enum UserRole {
   Patient
   Practitioner
-}
-
-enum AccountStatus {
-  Pending
-  Active
-  Inactive
-  Suspended
+  Admin
 }
 
 enum AppointmentType {
@@ -165,6 +153,13 @@ enum AppointmentStatus {
   Completed
   Cancelled
   NoShow
+}
+
+enum AccountStatus {
+  Pending
+  Active
+  Inactive
+  Suspended
 }
 
 enum EventType {
