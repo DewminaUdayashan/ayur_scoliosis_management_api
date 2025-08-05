@@ -99,7 +99,7 @@ export class AuthService {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...result } = newPractitioner;
-    return result;
+    return { code: 'REGISTRATION_SUCCESS', data: result };
   }
 
   async loginPractitioner(loginDto: LoginDto) {
@@ -131,6 +131,7 @@ export class AuthService {
 
     const payload = { sub: user.id, email: user.email, role: user.role };
     return {
+      code: 'LOGIN_SUCCESS',
       access_token: this.jwtService.sign(payload),
     };
   }
@@ -152,7 +153,7 @@ export class AuthService {
 
   async forgotPassword(
     forgotPasswordDto: ForgotPasswordDto,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; code: string }> {
     const { email } = forgotPasswordDto;
     const user = await this.prisma.appUser.findUnique({ where: { email } });
 
@@ -184,6 +185,7 @@ export class AuthService {
     }
 
     return {
+      code: 'PASSWORD_RESET_OTP_SENT',
       message:
         'If a user with that email exists, a password reset OTP has been sent.',
     };
@@ -191,7 +193,7 @@ export class AuthService {
 
   async resetPassword(
     resetPasswordDto: ResetPasswordDto,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; code: string }> {
     const { email, token, password } = resetPasswordDto;
 
     const passwordReset = await this.prisma.passwordReset.findUnique({
@@ -224,6 +226,88 @@ export class AuthService {
     // Delete the used token from the database
     await this.prisma.passwordReset.delete({ where: { id: passwordReset.id } });
 
-    return { message: 'Your password has been successfully reset.' };
+    return {
+      code: 'PASSWORD_RESET_SUCCESS',
+      message: 'Your password has been successfully reset.',
+    };
+  }
+
+  async setInitialPassword(
+    userId: string,
+    newPassword: string,
+  ): Promise<{ message: string; code: string }> {
+    const user = await this.prisma.appUser.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || !user.mustChangePassword) {
+      throw new BadRequestException(
+        'Invalid request. User may have already set their password.',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.appUser.update({
+      where: { id: userId },
+      data: {
+        passwordHash: hashedPassword,
+        mustChangePassword: false, // Flip the flag after setting the new password
+      },
+    });
+
+    return {
+      code: 'INITIAL_PASSWORD_SET',
+      message: 'Password has been set successfully. Please log in again.',
+    };
+  }
+
+  async login(loginDto: LoginDto): Promise<any> {
+    const { email, password } = loginDto;
+    const user = await this.prisma.appUser.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials.');
+    }
+
+    const isPasswordMatching = await bcrypt.compare(
+      password,
+      user.passwordHash,
+    );
+    if (!isPasswordMatching) {
+      throw new UnauthorizedException('Invalid credentials.');
+    }
+
+    // Check if the user needs to change their password
+    if (user.mustChangePassword) {
+      // Instead of a full JWT, send a temporary token and a message
+      const tempPayload = { sub: user.id, mustChangePassword: true };
+      return {
+        message: 'Password change required.',
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        temp_access_token: this.jwtService.sign(tempPayload, {
+          expiresIn: '15m',
+        }),
+      };
+    }
+
+    // For practitioners, check their account status
+    if (user.role === 'Practitioner') {
+      const practitioner = await this.prisma.practitioner.findUnique({
+        where: { appUserId: user.id },
+      });
+      if (practitioner?.status !== 'Active') {
+        throw new UnauthorizedException(
+          `Your account is currently ${practitioner?.status}. Please contact an administrator.`,
+        );
+      }
+    }
+
+    // If login is successful and no password change is needed, issue a standard JWT
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    return {
+      code: 'LOGIN_SUCCESS',
+      access_token: this.jwtService.sign(payload),
+    };
   }
 }

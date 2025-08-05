@@ -14,21 +14,23 @@ interface RequestWithUser extends Request {
 /**
  * @GetUser() custom parameter decorator.
  *
- * This decorator extracts the user object from the request, which is attached
- * by the JwtAuthGuard after successful token validation. It provides a clean
- * and type-safe way to access the authenticated user in your controllers.
+ * This decorator extracts the user object from the request. It can also
+ * extract a specific property from the user object if a key is provided.
  *
  * @example
- * @Get('profile')
- * getProfile(@GetUser() user: Omit<AppUser, 'passwordHash'>) {
- * return user;
- * }
+ * // Get the entire user object
+ * @GetUser() user: Omit<AppUser, 'passwordHash'>
+ *
+ * // Get a specific property (e.g., the user's ID)
+ * @GetUser('id') userId: string
  */
 export const GetUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): Omit<AppUser, 'passwordHash'> => {
-    // Switch to the HTTP context and get the request object
+  (data: keyof Omit<AppUser, 'passwordHash'>, ctx: ExecutionContext) => {
     const request: RequestWithUser = ctx.switchToHttp().getRequest();
-    // Return the user property from the typed request object
-    return request.user;
+    const user = request.user;
+
+    // If a data key (like 'id' or 'email') is provided, return that specific property.
+    // Otherwise, return the entire user object.
+    return data ? user?.[data] : user;
   },
 );
