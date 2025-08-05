@@ -17,7 +17,7 @@ model AppUser {
   email                      String         @unique
   passwordHash               String
   role                       UserRole
-  profileImageUrl            String? // Added optional profile image URL
+  profileImageUrl            String?
   practitioner               Practitioner?
   patient                    Patient?
   appointmentsAsPatient      Appointment[]  @relation("PatientAppointments")
@@ -136,6 +136,16 @@ model SessionNote {
   patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
   patientEventId String       @unique
   noteContent    String
+}
+
+// New model to store password reset tokens
+model PasswordReset {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+
+  @@index([email, token])
 }
 
 enum UserRole {

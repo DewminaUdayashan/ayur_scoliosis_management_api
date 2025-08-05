@@ -105,4 +105,34 @@ export class EmailService {
     `;
     await this.sendEmail(email, subject, htmlContent);
   }
+
+  /**
+   * Sends a password reset OTP to a user's email address.
+   * @param email The recipient's email address.
+   * @param name The recipient's name for personalization.
+   * @param otp The 6-digit one-time password for the reset.
+   */
+  async sendPasswordResetOtp(
+    email: string,
+    name: string,
+    otp: string,
+  ): Promise<void> {
+    const subject = 'Your Password Reset Code';
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
+        <p>Hello ${name},</p>
+        <p>We received a request to reset your password. Please use the code below to set up a new password. This code is valid for 10 minutes.</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <span style="display: inline-block; font-size: 24px; font-weight: bold; color: #fff; background-color: #28a745; padding: 10px 20px; border-radius: 5px; letter-spacing: 5px;">
+            ${otp}
+          </span>
+        </div>
+        <p style="color: #555;">If you did not request a password reset, you can safely ignore this email. Only a person with access to your email can reset your account password.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin-top: 20px;" />
+        <p style="font-size: 0.8em; color: #aaa; text-align: center;">&copy; Ayurveda Clinic. All rights reserved.</p>
+      </div>
+    `;
+    await this.sendEmail(email, subject, htmlContent);
+  }
 }

@@ -28,6 +28,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync } from 'fs'; // Import fs functions to check and create directories
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -144,5 +145,30 @@ export class AuthController {
   })
   getProfile(@GetUser() user: Omit<AppUser, 'passwordHash'>) {
     return user;
+  }
+
+  @Post('forgot-password')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'If a user with that email exists, a password reset OTP has been sent.',
+  })
+  @ApiBody({ type: ForgotPasswordDto })
+  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Post('reset-password')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Password has been successfully reset.',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid or expired password reset token.',
+  })
+  @ApiBody({ type: ResetPasswordDto })
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }
