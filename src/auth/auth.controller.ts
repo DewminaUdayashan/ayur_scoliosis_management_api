@@ -26,6 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { randomBytes } from 'crypto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -44,10 +45,8 @@ export class AuthController {
         storage: diskStorage({
           destination: './uploads',
           filename: (req, file, cb) => {
-            const randomName = Array(32)
-              .fill(null)
-              .map(() => Math.round(Math.random() * 16).toString(16))
-              .join('');
+            // Use crypto.randomBytes for a cryptographically secure random filename
+            const randomName = randomBytes(16).toString('hex');
             return cb(null, `${randomName}${extname(file.originalname)}`);
           },
         }),
