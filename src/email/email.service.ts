@@ -135,4 +135,34 @@ export class EmailService {
     `;
     await this.sendEmail(email, subject, htmlContent);
   }
+
+  /**
+   * Sends an invitation email to a new patient with their temporary credentials.
+   * @param email The new patient's email address.
+   * @param name The new patient's first name.
+   * @param tempPassword The generated temporary password.
+   */
+  async sendPatientInvitationEmail(
+    email: string,
+    name: string,
+    tempPassword: string,
+  ): Promise<void> {
+    const subject = 'You have been invited to Ayurveda Clinic';
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">Welcome to Ayurveda Clinic</h2>
+        <p>Hello ${name},</p>
+        <p>You have been invited to join the Ayurveda Clinic platform by your practitioner. Please use the following temporary credentials to log in for the first time.</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Email:</strong> ${email}</p>
+          <p style="margin: 10px 0 0;"><strong>Temporary Password:</strong> <strong style="font-size: 1.2em; color: #dc3545;">${tempPassword}</strong></p>
+        </div>
+        <p style="font-weight: bold;">For your security, you will be required to create a new, permanent password immediately after your first login.</p>
+        <p style="color: #555;">We look forward to assisting you on your wellness journey.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin-top: 20px;" />
+        <p style="font-size: 0.8em; color: #aaa; text-align: center;">&copy; Ayurveda Clinic. All rights reserved.</p>
+      </div>
+    `;
+    await this.sendEmail(email, subject, htmlContent);
+  }
 }

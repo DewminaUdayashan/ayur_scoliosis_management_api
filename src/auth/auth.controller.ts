@@ -29,6 +29,7 @@ import { extname } from 'path';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync } from 'fs'; // Import fs functions to check and create directories
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { SetInitialPasswordDto } from 'src/patient/dto/set-initial-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -170,5 +171,42 @@ export class AuthController {
   @ApiBody({ type: ResetPasswordDto })
   resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Post('login')
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Login successful. May return a standard JWT or a temporary token if a password change is required.',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Invalid credentials or account not active.',
+  })
+  login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
+  }
+
+  @Post('patient/set-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiBody({ type: SetInitialPasswordDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Password has been set successfully.',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid request or token.',
+  })
+  setInitialPassword(
+    @GetUser('id') userId: string,
+    @Body() setInitialPasswordDto: SetInitialPasswordDto,
+  ) {
+    return this.authService.setInitialPassword(
+      userId,
+      setInitialPasswordDto.password,
+    );
   }
 }

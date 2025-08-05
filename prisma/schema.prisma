@@ -18,6 +18,7 @@ model AppUser {
   passwordHash               String
   role                       UserRole
   profileImageUrl            String?
+  mustChangePassword         Boolean   @default(false)
   practitioner               Practitioner?
   patient                    Patient?
   appointmentsAsPatient      Appointment[]  @relation("PatientAppointments")
@@ -36,6 +37,7 @@ model Practitioner {
   status         AccountStatus
   clinic         Clinic  @relation(fields: [clinicId], references: [id])
   clinicId       String
+  invitedPatients Patient[]
 }
 
 model Patient {
@@ -44,8 +46,8 @@ model Patient {
   profileImageUrl String?
   dateOfBirth     DateTime
   gender          String
-  clinic          Clinic   @relation(fields: [clinicId], references: [id])
-  clinicId        String
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [appUserId])
+  practitionerId String
 }
 
 model Clinic {
@@ -58,7 +60,6 @@ model Clinic {
   phone         String
   imageUrl      String?
   practitioners Practitioner[]
-  patients      Patient[]
 }
 
 model Appointment {
