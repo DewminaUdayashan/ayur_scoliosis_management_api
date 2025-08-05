@@ -9,19 +9,20 @@ import { CreatePractitionerDto } from './dto/create-practitioner.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { EmailService } from '../email/email.service'; // Import the EmailService
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   async registerPractitioner(
     createPractitionerDto: CreatePractitionerDto,
     imageUrls: { profileImageUrl?: string; clinicImageUrl?: string },
   ) {
-    // Destructure all fields from the flattened DTO
     const {
       email,
       password,
@@ -48,7 +49,6 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create the clinic first using the destructured clinic fields
     const newClinic = await this.prisma.clinic.create({
       data: {
         name: clinicName,
@@ -61,7 +61,6 @@ export class AuthService {
       },
     });
 
-    // Now create the AppUser and the nested Practitioner
     const newPractitioner = await this.prisma.appUser.create({
       data: {
         firstName,
@@ -88,6 +87,12 @@ export class AuthService {
         },
       },
     });
+
+    // Send a welcome email to the new practitioner
+    await this.emailService.sendWelcomeEmail(
+      newPractitioner.email,
+      newPractitioner.firstName,
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...result } = newPractitioner;
