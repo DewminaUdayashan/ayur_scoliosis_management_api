@@ -27,6 +27,7 @@ import {
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { randomBytes } from 'crypto';
+import { existsSync, mkdirSync } from 'fs'; // Import fs functions to check and create directories
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -46,9 +47,15 @@ export class AuthController {
           fileSize: 8 * 1024 * 1024, // 8 MB
         },
         storage: diskStorage({
-          destination: './uploads',
+          destination: (req, file, cb) => {
+            const uploadPath = './uploads';
+            // Check if the upload path exists, and create it if it does not
+            if (!existsSync(uploadPath)) {
+              mkdirSync(uploadPath);
+            }
+            cb(null, uploadPath);
+          },
           filename: (req, file, cb) => {
-            // Use crypto.randomBytes for a cryptographically secure random filename
             const randomName = randomBytes(16).toString('hex');
             return cb(null, `${randomName}${extname(file.originalname)}`);
           },
@@ -84,8 +91,6 @@ export class AuthController {
       ? `/uploads/${files.clinicImage[0].filename}`
       : undefined;
 
-    // The controller now passes the flattened DTO directly to the service.
-    // The service will be responsible for handling the flattened data.
     return this.authService.registerPractitioner(body, {
       profileImageUrl,
       clinicImageUrl,
