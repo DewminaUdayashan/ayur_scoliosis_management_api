@@ -42,6 +42,9 @@ export class AuthController {
         { name: 'clinicImage', maxCount: 1 },
       ],
       {
+        limits: {
+          fileSize: 8 * 1024 * 1024, // 8 MB
+        },
         storage: diskStorage({
           destination: './uploads',
           filename: (req, file, cb) => {
