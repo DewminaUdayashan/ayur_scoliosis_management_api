@@ -104,7 +104,7 @@ export class CreatePractitionerDto {
     required: false,
     description: 'Optional profile image for the practitioner.',
   })
-  profileImage?: any;
+  profileImage?: Express.Multer.File;
 
   @ApiProperty({
     type: 'string',
@@ -112,5 +112,5 @@ export class CreatePractitionerDto {
     required: false,
     description: 'Optional image for the clinic.',
   })
-  clinicImage?: any;
+  clinicImage?: Express.Multer.File;
 }
