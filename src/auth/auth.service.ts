@@ -12,7 +12,8 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../email/email.service'; // Import the EmailService
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
-import { randomInt } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
+import { AppUser } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -129,7 +130,13 @@ export class AuthService {
       );
     }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      jti: randomBytes(16).toString('hex'), // Add jti here as well
+    };
+
     return {
       code: 'LOGIN_SUCCESS',
       access_token: this.jwtService.sign(payload),
@@ -278,9 +285,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
-    // Check if the user needs to change their password
     if (user.mustChangePassword) {
-      // Instead of a full JWT, send a temporary token and a message
       const tempPayload = { sub: user.id, mustChangePassword: true };
       return {
         message: 'Password change required.',
@@ -291,7 +296,6 @@ export class AuthService {
       };
     }
 
-    // For practitioners, check their account status
     if (user.role === 'Practitioner') {
       const practitioner = await this.prisma.practitioner.findUnique({
         where: { appUserId: user.id },
@@ -303,11 +307,42 @@ export class AuthService {
       }
     }
 
-    // If login is successful and no password change is needed, issue a standard JWT
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    // Add the unique JWT ID (jti) to the payload. This is the fix.
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      jti: randomBytes(16).toString('hex'),
+    };
+
     return {
       code: 'LOGIN_SUCCESS',
       access_token: this.jwtService.sign(payload),
+    };
+  }
+
+  /**
+   * Adds a token's JTI to the revoked list to invalidate it.
+   * @param user The authenticated user object from the JWT payload.
+   */
+  async signOut(
+    user: Omit<AppUser, 'passwordHash'> & { jti: string; exp: number },
+  ): Promise<{ message: string; code: string }> {
+    const { jti, exp } = user;
+
+    // The expiration date is in seconds, so we multiply by 1000 for milliseconds
+    const expiresAt = new Date(exp * 1000);
+
+    await this.prisma.revokedToken.create({
+      data: {
+        jti,
+        expiresAt,
+      },
+    });
+
+    return {
+      code: 'LOGOUT_SUCCESS',
+      message: 'You have been successfully signed out.',
     };
   }
 }

@@ -209,4 +209,38 @@ export class AuthController {
       setInitialPasswordDto.password,
     );
   }
+
+  @Get('status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Token is valid and user is authenticated.',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Token is invalid or expired.',
+  })
+  checkStatus(@GetUser() user: Omit<AppUser, 'passwordHash'>) {
+    // If the JwtAuthGuard passes, the token is valid. We can return the user's data.
+    return { code: 'TOKEN_VALID', user };
+  }
+
+  @Post('sign-out')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User has been successfully signed out.',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'User is not authenticated.',
+  })
+  signOut(
+    @GetUser()
+    user: Omit<AppUser, 'passwordHash'> & { jti: string; exp: number },
+  ) {
+    return this.authService.signOut(user);
+  }
 }

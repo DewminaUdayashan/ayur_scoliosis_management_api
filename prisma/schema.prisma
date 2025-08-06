@@ -139,7 +139,6 @@ model SessionNote {
   noteContent    String
 }
 
-// New model to store password reset tokens
 model PasswordReset {
   id        String   @id @default(uuid())
   email     String
@@ -148,6 +147,13 @@ model PasswordReset {
 
   @@index([email, token])
 }
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique // The unique identifier of the JWT
+  expiresAt DateTime // When the token naturally expires
+}
+
 
 enum UserRole {
   Patient
