@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { InvitePatientDto } from './dto/invite-patient.dto';
 import { customAlphabet } from 'nanoid';
 import * as bcrypt from 'bcrypt';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class PatientService {
@@ -70,5 +71,58 @@ export class PatientService {
     );
 
     return { message: 'Patient invitation sent successfully.' };
+  }
+
+  /**
+   * Retrieves a paginated list of patients invited by a specific practitioner.
+   * @param practitionerId The ID of the authenticated practitioner.
+   * @param paginationDto DTO containing page and pageSize for pagination.
+   */
+  async getPatientsForPractitioner(
+    practitionerId: string,
+    paginationDto: PaginationDto,
+  ) {
+    // Ensure default values are used if page or pageSize are not provided.
+    const page = paginationDto.page ?? 1;
+    const pageSize = paginationDto.pageSize ?? 10;
+    const skip = (page - 1) * pageSize;
+
+    const [patients, totalCount] = await this.prisma.$transaction([
+      this.prisma.patient.findMany({
+        where: {
+          practitionerId: practitionerId,
+        },
+        include: {
+          appUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              profileImageUrl: true,
+            },
+          },
+        },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.patient.count({
+        where: {
+          practitionerId: practitionerId,
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data: patients,
+      meta: {
+        totalCount,
+        currentPage: page,
+        pageSize,
+        totalPages,
+      },
+    };
   }
 }
