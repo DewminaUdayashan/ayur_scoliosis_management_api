@@ -3,15 +3,21 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
 import { AppointmentStatus } from '@prisma/client';
+import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AppointmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   /**
    * Checks if a given time slot is available for a practitioner.
@@ -82,42 +88,116 @@ export class AppointmentService {
 
   /**
    * A helper method to determine if a time slot is already occupied.
-   * It fetches potential conflicts from the DB and then checks for precise overlaps in memory.
+   * It fetches potential conflicts from the DB and then checks for precise overlaps in memory,
+   * excluding the current appointment being updated.
    */
   private async isTimeSlotTaken(
     practitionerId: string,
     startTime: Date,
     duration: number,
+    excludeAppointmentId?: string,
   ): Promise<boolean> {
     const endTime = new Date(startTime.getTime() + duration * 60000);
 
-    // Fetch appointments that are in a window around the proposed time to minimize the data retrieved.
     const potentialConflicts = await this.prisma.appointment.findMany({
       where: {
+        id: { not: excludeAppointmentId }, // Exclude the current appointment from the check
         practitionerId,
         status: { not: AppointmentStatus.Cancelled },
-        // Find appointments that start before the proposed new one would end.
         appointmentDateTime: {
           lt: endTime,
         },
       },
     });
 
-    // Now, check for a precise overlap in the application logic.
     for (const appointment of potentialConflicts) {
       const existingStartTime = appointment.appointmentDateTime.getTime();
       const existingEndTime =
         existingStartTime + appointment.durationInMinutes * 60000;
 
-      // The overlap condition: (StartA < EndB) and (EndA > StartB)
       if (
         startTime.getTime() < existingEndTime &&
         endTime.getTime() > existingStartTime
       ) {
-        return true; // A conflict was found
+        return true;
       }
     }
 
-    return false; // No conflicts found
+    return false;
+  }
+
+  /**
+   * Updates an existing appointment.
+   */
+  async updateAppointment(
+    practitionerId: string,
+    appointmentId: string,
+    updateAppointmentDto: UpdateAppointmentDto,
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment || appointment.practitionerId !== practitionerId) {
+      throw new NotFoundException(
+        'Appointment not found or you do not have permission to edit it.',
+      );
+    }
+
+    if (
+      appointment.status === 'Completed' ||
+      appointment.status === 'Cancelled'
+    ) {
+      throw new ForbiddenException(
+        `Cannot update an appointment with '${appointment.status}' status.`,
+      );
+    }
+
+    const newStartTime = updateAppointmentDto.appointmentDateTime
+      ? new Date(updateAppointmentDto.appointmentDateTime)
+      : appointment.appointmentDateTime;
+    const newDuration =
+      updateAppointmentDto.durationInMinutes ?? appointment.durationInMinutes;
+
+    if (
+      updateAppointmentDto.appointmentDateTime ||
+      updateAppointmentDto.durationInMinutes
+    ) {
+      const isSlotTaken = await this.isTimeSlotTaken(
+        practitionerId,
+        newStartTime,
+        newDuration,
+        appointmentId,
+      );
+      if (isSlotTaken) {
+        throw new ConflictException(
+          'This time slot conflicts with another appointment.',
+        );
+      }
+    }
+
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        ...updateAppointmentDto,
+        appointmentDateTime: newStartTime,
+        status:
+          appointment.status === 'Scheduled'
+            ? 'PendingPatientConfirmation'
+            : appointment.status,
+      },
+      // Correctly include the related AppUser data for the patient
+      include: {
+        patient: true,
+      },
+    });
+
+    // Send an email notification to the patient about the update
+    await this.emailService.sendAppointmentUpdateEmail(
+      updatedAppointment.patient.email,
+      updatedAppointment.patient.firstName,
+      updatedAppointment,
+    );
+    return updatedAppointment;
   }
 }

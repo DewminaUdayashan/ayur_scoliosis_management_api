@@ -7,6 +7,8 @@ import {
   HttpStatus,
   Get,
   Query,
+  Patch,
+  Param,
 } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -23,6 +25,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
 @ApiTags('Appointment Management')
 @Controller('appointment')
@@ -53,6 +56,33 @@ export class AppointmentController {
     return this.appointmentService.createAppointment(
       practitionerId,
       createAppointmentDto,
+    );
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.Practitioner)
+  @ApiBody({ type: UpdateAppointmentDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The appointment has been successfully updated.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Appointment not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'The requested time slot is not available.',
+  })
+  updateAppointment(
+    @GetUser('id') practitionerId: string,
+    @Param('id') appointmentId: string,
+    @Body() updateAppointmentDto: UpdateAppointmentDto,
+  ) {
+    return this.appointmentService.updateAppointment(
+      practitionerId,
+      appointmentId,
+      updateAppointmentDto,
     );
   }
 

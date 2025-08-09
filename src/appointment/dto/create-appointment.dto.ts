@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsEnum,
@@ -38,10 +38,7 @@ export class CreateAppointmentDto {
   @IsEnum(AppointmentType)
   type: AppointmentType;
 
-  @ApiProperty({
-    description: 'Optional notes for the appointment.',
-    required: false,
-  })
+  @ApiPropertyOptional({ description: 'Optional notes for the appointment.' })
   @IsString()
   @IsOptional()
   notes?: string;
