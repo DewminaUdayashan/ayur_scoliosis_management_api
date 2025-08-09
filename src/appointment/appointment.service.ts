@@ -11,6 +11,7 @@ import { AppointmentStatus, AppUser, Prisma, UserRole } from '@prisma/client';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { EmailService } from 'src/email/email.service';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
+import { RespondToAppointmentDto } from './dto/respond-to-appointment.dto';
 
 @Injectable()
 export class AppointmentService {
@@ -268,5 +269,59 @@ export class AppointmentService {
       updatedAppointment,
     );
     return updatedAppointment;
+  }
+
+  /**
+   * Allows a patient to respond to a pending appointment invitation.
+   */
+  async respondToAppointment(
+    patientId: string,
+    appointmentId: string,
+    respondDto: RespondToAppointmentDto,
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        practitioner: true,
+      },
+    });
+
+    // 1. Verify the appointment exists and belongs to this patient
+    if (!appointment || appointment.patientId !== patientId) {
+      throw new NotFoundException(
+        'Appointment not found or you do not have permission to respond to it.',
+      );
+    }
+
+    // 2. Verify the appointment is in the correct state to be actioned
+    if (appointment.status !== AppointmentStatus.PendingPatientConfirmation) {
+      throw new ForbiddenException(
+        `This appointment cannot be responded to as its status is '${appointment.status}'.`,
+      );
+    }
+
+    // 3. Update the appointment status based on the patient's response
+    const newStatus = respondDto.accepted
+      ? AppointmentStatus.Scheduled
+      : AppointmentStatus.Cancelled;
+
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: { status: newStatus },
+    });
+
+    // 4. Send a notification email to the practitioner
+    await this.emailService.sendAppointmentResponseEmail(
+      appointment.practitioner.email,
+      appointment.practitioner.firstName,
+      updatedAppointment,
+      respondDto.message,
+    );
+
+    return {
+      code: 'APPOINTMENT_RESPONSE_SUCCESS',
+      message: `Appointment has been successfully ${newStatus === 'Scheduled' ? 'confirmed' : 'cancelled'}.`,
+      data: updatedAppointment,
+    };
   }
 }
