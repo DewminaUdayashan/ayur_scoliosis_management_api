@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Appointment } from '@prisma/client';
+import { Appointment, AppointmentStatus } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
@@ -229,5 +229,43 @@ export class EmailService {
       </div>
     `;
     await this.sendEmail(email, subject, htmlContent);
+  }
+
+  /**
+   * Sends an email to a practitioner notifying them of a patient's response to an appointment.
+   */
+  async sendAppointmentResponseEmail(
+    practitionerEmail: string,
+    practitionerName: string,
+    appointment: Appointment,
+    message?: string,
+  ): Promise<void> {
+    const isAccepted = appointment.status === AppointmentStatus.Scheduled;
+    const subject = `Patient Response: Appointment ${isAccepted ? 'Confirmed' : 'Declined'}`;
+    const appointmentDate = new Date(
+      appointment.appointmentDateTime,
+    ).toLocaleString('en-US', {
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">Patient Response Received</h2>
+        <p>Hello Dr. ${practitionerName},</p>
+        <p>A patient has responded to an appointment request. Details are below:</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Status:</strong> 
+            <span style="color: ${isAccepted ? '#28a745' : '#dc3545'}; font-weight: bold;">
+              ${isAccepted ? 'CONFIRMED' : 'DECLINED'}
+            </span>
+          </p>
+          <p style="margin: 10px 0 0;"><strong>Date & Time:</strong> ${appointmentDate}</p>
+          ${message ? `<p style="margin: 10px 0 0; border-top: 1px solid #eee; padding-top: 10px;"><strong>Patient Message:</strong> <em>"${message}"</em></p>` : ''}
+        </div>
+        <p>You can view this appointment in your dashboard.</p>
+      </div>
+    `;
+    await this.sendEmail(practitionerEmail, subject, htmlContent);
   }
 }

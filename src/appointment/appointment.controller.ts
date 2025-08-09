@@ -1,4 +1,3 @@
-// src/appointment/appointment.controller.ts
 import {
   Controller,
   Post,
@@ -27,6 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
+import { RespondToAppointmentDto } from './dto/respond-to-appointment.dto';
 
 @ApiTags('Appointment Management')
 @Controller('appointments')
@@ -36,7 +36,6 @@ export class AppointmentController {
   constructor(private readonly appointmentService: AppointmentService) {}
 
   @Get()
-  // This endpoint is no longer restricted to Practitioners only
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   @ApiQuery({
@@ -143,6 +142,34 @@ export class AppointmentController {
     return this.appointmentService.checkAvailability(
       practitionerId,
       checkAvailabilityDto,
+    );
+  }
+
+  @Patch(':id/respond')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.Patient)
+  @ApiBody({ type: RespondToAppointmentDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully responded to the appointment.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Appointment not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Cannot respond to this appointment.',
+  })
+  respondToAppointment(
+    @GetUser('id') patientId: string,
+    @Param('id') appointmentId: string,
+    @Body() respondDto: RespondToAppointmentDto,
+  ) {
+    return this.appointmentService.respondToAppointment(
+      patientId,
+      appointmentId,
+      respondDto,
     );
   }
 }
