@@ -8,9 +8,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, AppUser, Prisma, UserRole } from '@prisma/client';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { EmailService } from 'src/email/email.service';
+import { GetAppointmentsDto } from './dto/get-appointments.dto';
 
 @Injectable()
 export class AppointmentService {
@@ -18,6 +19,75 @@ export class AppointmentService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
   ) {}
+
+  /**
+   * Retrieves a paginated, filtered, and sorted list of appointments based on the user's role.
+   */
+  async getAppointments(
+    user: Omit<AppUser, 'passwordHash'>,
+    query: GetAppointmentsDto,
+  ) {
+    const {
+      page = 1,
+      pageSize = 10,
+      patientId,
+      sortBy = 'appointmentDateTime',
+      sortOrder = 'asc',
+    } = query;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.AppointmentWhereInput = {};
+
+    if (user.role === UserRole.Practitioner) {
+      where.practitionerId = user.id;
+      if (patientId) {
+        where.patientId = patientId;
+      }
+    } else if (user.role === UserRole.Patient) {
+      where.patientId = user.id;
+    }
+
+    const [appointments, totalCount] = await this.prisma.$transaction([
+      this.prisma.appointment.findMany({
+        where,
+        include: {
+          // Include the first and last name from the related AppUser for the patient
+          patient: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+          // Correctly include the first and last name from the related AppUser for the practitioner
+          practitioner: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+        skip,
+        take: pageSize,
+        // Use the validated sortBy and sortOrder for dynamic sorting
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+      }),
+      this.prisma.appointment.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data: appointments,
+      meta: {
+        totalCount,
+        currentPage: page,
+        pageSize,
+        totalPages,
+      },
+    };
+  }
 
   /**
    * Checks if a given time slot is available for a practitioner.
