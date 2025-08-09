@@ -7,6 +7,7 @@ import { EmailModule } from './email/email.module';
 import { ConfigModule } from '@nestjs/config';
 import { PatientModule } from './patient/patient.module';
 import { ProfileModule } from './profile/profile.module';
+import { AppointmentModule } from './appointment/appointment.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ProfileModule } from './profile/profile.module';
     EmailModule,
     PatientModule,
     ProfileModule,
+    AppointmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
