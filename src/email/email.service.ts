@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Appointment } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
@@ -161,6 +162,70 @@ export class EmailService {
         <p style="color: #555;">We look forward to assisting you on your wellness journey.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin-top: 20px;" />
         <p style="font-size: 0.8em; color: #aaa; text-align: center;">&copy; Ayurveda Clinic. All rights reserved.</p>
+      </div>
+    `;
+    await this.sendEmail(email, subject, htmlContent);
+  }
+
+  /**
+   * Sends an email to a patient when a new appointment is scheduled.
+   */
+  async sendAppointmentCreationEmail(
+    email: string,
+    patientName: string,
+    appointment: Appointment,
+  ): Promise<void> {
+    const subject = 'New Appointment Scheduled';
+    const appointmentDate = new Date(
+      appointment.appointmentDateTime,
+    ).toLocaleString('en-US', {
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">New Appointment Confirmation</h2>
+        <p>Hello ${patientName},</p>
+        <p>A new appointment has been scheduled for you. Please review the details below and confirm your attendance.</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Date & Time:</strong> ${appointmentDate}</p>
+          <p style="margin: 10px 0 0;"><strong>Duration:</strong> ${appointment.durationInMinutes} minutes</p>
+          <p style="margin: 10px 0 0;"><strong>Type:</strong> ${appointment.type}</p>
+        </div>
+        <p>Please log in to your patient portal to confirm or decline this appointment.</p>
+      </div>
+    `;
+    await this.sendEmail(email, subject, htmlContent);
+  }
+
+  /**
+   * Sends an email to a patient when an existing appointment is updated.
+   */
+  async sendAppointmentUpdateEmail(
+    email: string,
+    patientName: string,
+    appointment: Appointment,
+  ): Promise<void> {
+    const subject = 'Your Appointment Has Been Updated';
+    const appointmentDate = new Date(
+      appointment.appointmentDateTime,
+    ).toLocaleString('en-US', {
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">Appointment Update Notification</h2>
+        <p>Hello ${patientName},</p>
+        <p>Your upcoming appointment has been updated. Please review the new details below.</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>New Date & Time:</strong> ${appointmentDate}</p>
+          <p style="margin: 10px 0 0;"><strong>New Duration:</strong> ${appointment.durationInMinutes} minutes</p>
+          <p style="margin: 10px 0 0;"><strong>New Type:</strong> ${appointment.type}</p>
+        </div>
+        <p>As the details have changed, please log in to your patient portal to re-confirm your attendance for this new time slot.</p>
       </div>
     `;
     await this.sendEmail(email, subject, htmlContent);
