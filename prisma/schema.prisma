@@ -171,6 +171,7 @@ enum AppointmentStatus {
   Completed
   Cancelled
   NoShow
+  PendingPatientConfirmation
 }
 
 enum AccountStatus {
