@@ -1,4 +1,3 @@
-// src/appointment/appointment.service.ts
 import {
   Injectable,
   ConflictException,

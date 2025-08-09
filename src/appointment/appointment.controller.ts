@@ -1,4 +1,3 @@
-// src/appointment/appointment.controller.ts
 import {
   Controller,
   Post,
@@ -36,7 +35,6 @@ export class AppointmentController {
   constructor(private readonly appointmentService: AppointmentService) {}
 
   @Get()
-  // This endpoint is no longer restricted to Practitioners only
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   @ApiQuery({
