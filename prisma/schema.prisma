@@ -18,7 +18,8 @@ model AppUser {
   passwordHash               String
   role                       UserRole
   profileImageUrl            String?
-  mustChangePassword         Boolean   @default(false)
+  mustChangePassword         Boolean        @default(false)
+  joinedDate                 DateTime       @default(now()) 
   practitioner               Practitioner?
   patient                    Patient?
   appointmentsAsPatient      Appointment[]  @relation("PatientAppointments")

@@ -12,6 +12,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { EmailService } from 'src/email/email.service';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
 import { RespondToAppointmentDto } from './dto/respond-to-appointment.dto';
+import { GetAppointmentDatesDto } from './dto/get-appointment-dates.dto';
 
 @Injectable()
 export class AppointmentService {
@@ -323,5 +324,157 @@ export class AppointmentService {
       message: `Appointment has been successfully ${newStatus === 'Scheduled' ? 'confirmed' : 'cancelled'}.`,
       data: updatedAppointment,
     };
+  }
+
+  /**
+   * Retrieves all upcoming appointments for a specific patient.
+   * @param patientId The ID of the authenticated patient.
+   */
+  async getUpcomingAppointmentsForPatient(patientId: string) {
+    return this.prisma.appointment.findMany({
+      where: {
+        patientId: patientId,
+        // Filter for appointments that are scheduled for the future
+        appointmentDateTime: {
+          gt: new Date(), // Greater than current date
+        },
+        // Only include appointments that are active or pending confirmation
+        status: {
+          in: [
+            AppointmentStatus.Scheduled,
+            AppointmentStatus.PendingPatientConfirmation,
+          ],
+        },
+      },
+      include: {
+        // Include details about the practitioner for the patient's convenience
+        practitioner: {
+          select: {
+            firstName: true,
+            lastName: true,
+            practitioner: {
+              select: {
+                specialty: true,
+                clinic: {
+                  select: {
+                    name: true,
+                    addressLine1: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        appointmentDateTime: 'asc',
+      },
+    });
+  }
+
+  /**
+   * Retrieves the full details of a single appointment by its ID.
+   * Ensures that only the involved patient or practitioner can access it.
+   * @param user The authenticated user (patient or practitioner).
+   * @param appointmentId The ID of the appointment to retrieve.
+   */
+  async getAppointmentDetails(
+    user: Omit<AppUser, 'passwordHash'>,
+    appointmentId: string,
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        practitioner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found.');
+    }
+
+    // Authorization check: Allow access only if the user is the patient or the practitioner for this appointment.
+    if (user.role === UserRole.Patient && appointment.patientId !== user.id) {
+      throw new ForbiddenException(
+        'You do not have permission to view this appointment.',
+      );
+    }
+
+    if (
+      user.role === UserRole.Practitioner &&
+      appointment.practitionerId !== user.id
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to view this appointment.',
+      );
+    }
+
+    return appointment;
+  }
+
+  /**
+   * Retrieves a list of unique dates that have appointments within a given range for the user.
+   * @param user The authenticated user.
+   * @param query DTO containing the start and end of the date range.
+   */
+  async getAppointmentDates(
+    user: Omit<AppUser, 'passwordHash'>,
+    query: GetAppointmentDatesDto,
+  ) {
+    const { start, end } = query;
+
+    const where: Prisma.AppointmentWhereInput = {
+      appointmentDateTime: {
+        gte: new Date(start),
+        lte: new Date(end),
+      },
+      status: {
+        in: [
+          AppointmentStatus.Scheduled,
+          AppointmentStatus.PendingPatientConfirmation,
+        ],
+      },
+    };
+
+    if (user.role === UserRole.Practitioner) {
+      where.practitionerId = user.id;
+    } else if (user.role === UserRole.Patient) {
+      where.patientId = user.id;
+    }
+
+    const appointments = await this.prisma.appointment.findMany({
+      where,
+      select: {
+        appointmentDateTime: true,
+      },
+    });
+
+    // Use a Set to get a list of unique dates in 'YYYY-MM-DD' format,
+    // which is easy for the frontend calendar to consume.
+    const uniqueDates = [
+      ...new Set(
+        appointments.map(
+          (appointment) =>
+            appointment.appointmentDateTime.toISOString().split('T')[0],
+        ),
+      ),
+    ];
+
+    return uniqueDates;
   }
 }
