@@ -67,6 +67,42 @@ export class AppointmentController {
     return this.appointmentService.getAppointments(user, getAppointmentsDto);
   }
 
+  @Get('upcoming')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.Patient)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Returns a list of upcoming appointments for the authenticated patient.',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'User is not authenticated or is not a patient.',
+  })
+  getUpcomingAppointments(@GetUser('id') patientId: string) {
+    return this.appointmentService.getUpcomingAppointmentsForPatient(patientId);
+  }
+
+  @Get(':id')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Returns the details of the specified appointment.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Appointment not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User does not have permission to view this appointment.',
+  })
+  getAppointmentDetails(
+    @GetUser() user: Omit<AppUser, 'passwordHash'>,
+    @Param('id') appointmentId: string,
+  ) {
+    return this.appointmentService.getAppointmentDetails(user, appointmentId);
+  }
+
   @Post('schedule')
   @Roles(UserRole.Practitioner)
   @ApiBody({ type: CreateAppointmentDto })
@@ -171,21 +207,5 @@ export class AppointmentController {
       appointmentId,
       respondDto,
     );
-  }
-
-  @Get('upcoming')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.Patient)
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description:
-      'Returns a list of upcoming appointments for the authenticated patient.',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'User is not authenticated or is not a patient.',
-  })
-  getUpcomingAppointments(@GetUser('id') patientId: string) {
-    return this.appointmentService.getUpcomingAppointmentsForPatient(patientId);
   }
 }

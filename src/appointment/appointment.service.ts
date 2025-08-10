@@ -370,4 +370,59 @@ export class AppointmentService {
       },
     });
   }
+
+  /**
+   * Retrieves the full details of a single appointment by its ID.
+   * Ensures that only the involved patient or practitioner can access it.
+   * @param user The authenticated user (patient or practitioner).
+   * @param appointmentId The ID of the appointment to retrieve.
+   */
+  async getAppointmentDetails(
+    user: Omit<AppUser, 'passwordHash'>,
+    appointmentId: string,
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        practitioner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found.');
+    }
+
+    // Authorization check: Allow access only if the user is the patient or the practitioner for this appointment.
+    if (user.role === UserRole.Patient && appointment.patientId !== user.id) {
+      throw new ForbiddenException(
+        'You do not have permission to view this appointment.',
+      );
+    }
+
+    if (
+      user.role === UserRole.Practitioner &&
+      appointment.practitionerId !== user.id
+    ) {
+      throw new ForbiddenException(
+        'You do not have permission to view this appointment.',
+      );
+    }
+
+    return appointment;
+  }
 }
