@@ -27,6 +27,7 @@ import {
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
 import { RespondToAppointmentDto } from './dto/respond-to-appointment.dto';
+import { GetAppointmentDatesDto } from './dto/get-appointment-dates.dto';
 
 @ApiTags('Appointment Management')
 @Controller('appointments')
@@ -81,6 +82,28 @@ export class AppointmentController {
   })
   getUpcomingAppointments(@GetUser('id') patientId: string) {
     return this.appointmentService.getUpcomingAppointmentsForPatient(patientId);
+  }
+
+  @Get('dates')
+  @ApiQuery({
+    name: 'start',
+    type: String,
+    description: 'Start of the date range (YYYY-MM-DD).',
+  })
+  @ApiQuery({
+    name: 'end',
+    type: String,
+    description: 'End of the date range (YYYY-MM-DD).',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Returns a list of dates that have appointments.',
+  })
+  getAppointmentDates(
+    @GetUser() user: Omit<AppUser, 'passwordHash'>,
+    @Query() query: GetAppointmentDatesDto,
+  ) {
+    return this.appointmentService.getAppointmentDates(user, query);
   }
 
   @Get(':id')

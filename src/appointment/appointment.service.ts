@@ -12,6 +12,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { EmailService } from 'src/email/email.service';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
 import { RespondToAppointmentDto } from './dto/respond-to-appointment.dto';
+import { GetAppointmentDatesDto } from './dto/get-appointment-dates.dto';
 
 @Injectable()
 export class AppointmentService {
@@ -424,5 +425,56 @@ export class AppointmentService {
     }
 
     return appointment;
+  }
+
+  /**
+   * Retrieves a list of unique dates that have appointments within a given range for the user.
+   * @param user The authenticated user.
+   * @param query DTO containing the start and end of the date range.
+   */
+  async getAppointmentDates(
+    user: Omit<AppUser, 'passwordHash'>,
+    query: GetAppointmentDatesDto,
+  ) {
+    const { start, end } = query;
+
+    const where: Prisma.AppointmentWhereInput = {
+      appointmentDateTime: {
+        gte: new Date(start),
+        lte: new Date(end),
+      },
+      status: {
+        in: [
+          AppointmentStatus.Scheduled,
+          AppointmentStatus.PendingPatientConfirmation,
+        ],
+      },
+    };
+
+    if (user.role === UserRole.Practitioner) {
+      where.practitionerId = user.id;
+    } else if (user.role === UserRole.Patient) {
+      where.patientId = user.id;
+    }
+
+    const appointments = await this.prisma.appointment.findMany({
+      where,
+      select: {
+        appointmentDateTime: true,
+      },
+    });
+
+    // Use a Set to get a list of unique dates in 'YYYY-MM-DD' format,
+    // which is easy for the frontend calendar to consume.
+    const uniqueDates = [
+      ...new Set(
+        appointments.map(
+          (appointment) =>
+            appointment.appointmentDateTime.toISOString().split('T')[0],
+        ),
+      ),
+    ];
+
+    return uniqueDates;
   }
 }
