@@ -324,4 +324,50 @@ export class AppointmentService {
       data: updatedAppointment,
     };
   }
+
+  /**
+   * Retrieves all upcoming appointments for a specific patient.
+   * @param patientId The ID of the authenticated patient.
+   */
+  async getUpcomingAppointmentsForPatient(patientId: string) {
+    return this.prisma.appointment.findMany({
+      where: {
+        patientId: patientId,
+        // Filter for appointments that are scheduled for the future
+        appointmentDateTime: {
+          gt: new Date(), // Greater than current date
+        },
+        // Only include appointments that are active or pending confirmation
+        status: {
+          in: [
+            AppointmentStatus.Scheduled,
+            AppointmentStatus.PendingPatientConfirmation,
+          ],
+        },
+      },
+      include: {
+        // Include details about the practitioner for the patient's convenience
+        practitioner: {
+          select: {
+            firstName: true,
+            lastName: true,
+            practitioner: {
+              select: {
+                specialty: true,
+                clinic: {
+                  select: {
+                    name: true,
+                    addressLine1: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        appointmentDateTime: 'asc',
+      },
+    });
+  }
 }

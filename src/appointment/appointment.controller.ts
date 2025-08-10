@@ -172,4 +172,20 @@ export class AppointmentController {
       respondDto,
     );
   }
+
+  @Get('upcoming')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.Patient)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Returns a list of upcoming appointments for the authenticated patient.',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'User is not authenticated or is not a patient.',
+  })
+  getUpcomingAppointments(@GetUser('id') patientId: string) {
+    return this.appointmentService.getUpcomingAppointmentsForPatient(patientId);
+  }
 }
