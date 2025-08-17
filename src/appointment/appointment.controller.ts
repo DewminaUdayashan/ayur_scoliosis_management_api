@@ -57,12 +57,24 @@ export class AppointmentController {
     enum: ['asc', 'desc'],
     description: 'Sort order.',
   })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    type: String,
+    description: 'Start of date range (YYYY-MM-DD).',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    type: String,
+    description: 'End of date range (YYYY-MM-DD).',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Returns a list of appointments for the authenticated user.',
   })
   getAppointments(
-    @GetUser() user: Omit<AppUser, 'passwordHash'>, // Get the full user object
+    @GetUser() user: Omit<AppUser, 'passwordHash'>,
     @Query() getAppointmentsDto: GetAppointmentsDto,
   ) {
     return this.appointmentService.getAppointments(user, getAppointmentsDto);

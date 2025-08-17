@@ -34,6 +34,8 @@ export class AppointmentService {
       patientId,
       sortBy = 'appointmentDateTime',
       sortOrder = 'asc',
+      startDate,
+      endDate,
     } = query;
     const skip = (page - 1) * pageSize;
 
@@ -48,18 +50,24 @@ export class AppointmentService {
       where.patientId = user.id;
     }
 
+    // Add the date range filter to the where clause if both dates are provided
+    if (startDate && endDate) {
+      where.appointmentDateTime = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      };
+    }
+
     const [appointments, totalCount] = await this.prisma.$transaction([
       this.prisma.appointment.findMany({
         where,
         include: {
-          // Include the first and last name from the related AppUser for the patient
           patient: {
             select: {
               firstName: true,
               lastName: true,
             },
           },
-          // Correctly include the first and last name from the related AppUser for the practitioner
           practitioner: {
             select: {
               firstName: true,
@@ -69,7 +77,6 @@ export class AppointmentService {
         },
         skip,
         take: pageSize,
-        // Use the validated sortBy and sortOrder for dynamic sorting
         orderBy: {
           [sortBy]: sortOrder,
         },
