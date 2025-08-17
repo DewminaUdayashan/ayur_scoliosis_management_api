@@ -150,7 +150,7 @@ export class PatientService {
         patient: true,
       },
     });
-    console.log(patient);
+
     if (!patient) {
       throw new NotFoundException('Patient not found.');
     }
