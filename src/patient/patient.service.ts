@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EmailService } from 'src/email/email.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -9,6 +10,7 @@ import { InvitePatientDto } from './dto/invite-patient.dto';
 import { customAlphabet } from 'nanoid';
 import * as bcrypt from 'bcrypt';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { AppUser, UserRole } from '@prisma/client';
 
 @Injectable()
 export class PatientService {
@@ -124,5 +126,67 @@ export class PatientService {
         totalPages,
       },
     };
+  }
+
+  /**
+   * Retrieves the full details for a single patient by their ID.
+   * Enforces authorization rules based on the requester's role.
+   * @param user The authenticated user making the request.
+   * @param patientId The ID of the patient to retrieve.
+   */
+  async getPatientDetails(
+    user: Omit<AppUser, 'passwordHash'>,
+    patientId: string,
+  ) {
+    const patient = await this.prisma.patient.findUnique({
+      where: { appUserId: patientId },
+      include: {
+        appUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profileImageUrl: true,
+            joinedDate: true,
+          },
+        },
+        practitioner: {
+          include: {
+            appUser: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+            clinic: true,
+          },
+        },
+      },
+    });
+
+    if (!patient) {
+      throw new NotFoundException('Patient not found.');
+    }
+
+    // Authorization Logic
+    if (user.role === UserRole.Patient) {
+      // Patients can only access their own details.
+      if (patient.appUserId !== user.id) {
+        throw new ForbiddenException(
+          "You do not have permission to view this patient's details.",
+        );
+      }
+    } else if (user.role === UserRole.Practitioner) {
+      // Practitioners can only access patients they have invited.
+      if (patient.practitionerId !== user.id) {
+        throw new ForbiddenException(
+          "You do not have permission to view this patient's details.",
+        );
+      }
+    }
+    // Admins are implicitly allowed to proceed.
+
+    return patient;
   }
 }

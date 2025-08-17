@@ -6,13 +6,14 @@ import {
   HttpStatus,
   Get,
   Query,
+  Param,
 } from '@nestjs/common';
 import { PatientService } from './patient.service';
 import { InvitePatientDto } from './dto/invite-patient.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { AppUser, UserRole } from '@prisma/client';
 import { GetUser } from '../auth/decorators/user.decorator';
 import {
   ApiBearerAuth,
@@ -81,5 +82,28 @@ export class PatientController {
       practitionerId,
       paginationDto,
     );
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.Practitioner, UserRole.Admin, UserRole.Patient)
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Returns the details for the specified patient.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Patient not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User does not have permission to view this patient.',
+  })
+  getPatientDetails(
+    @GetUser() user: Omit<AppUser, 'passwordHash'>,
+    @Param('id') patientId: string,
+  ) {
+    return this.patientService.getPatientDetails(user, patientId);
   }
 }
