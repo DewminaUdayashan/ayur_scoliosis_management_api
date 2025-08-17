@@ -53,6 +53,7 @@ export class ProfileService {
       const updatedAppUser = await tx.appUser.update({
         where: { id: userId },
         data: {
+          phone,
           firstName,
           lastName,
           profileImageUrl,
@@ -64,7 +65,6 @@ export class ProfileService {
         await tx.practitioner.update({
           where: { appUserId: userId },
           data: {
-            phone,
             specialty,
           },
         });

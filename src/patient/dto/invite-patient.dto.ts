@@ -7,9 +7,13 @@ export class InvitePatientDto {
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: 'Jane' })
+  @ApiProperty({ example: '123-456-7890' })
   @IsString()
   @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ example: 'Jane' })
+  @IsString()
   firstName: string;
 
   @ApiProperty({ example: 'Smith' })

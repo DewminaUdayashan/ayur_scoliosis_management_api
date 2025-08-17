@@ -70,12 +70,12 @@ export class AuthService {
         firstName,
         lastName,
         email,
+        phone,
         passwordHash: hashedPassword,
         role: 'Practitioner',
         profileImageUrl: imageUrls.profileImageUrl,
         practitioner: {
           create: {
-            phone,
             specialty,
             medicalLicense,
             status: 'Pending',

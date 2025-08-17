@@ -10,7 +10,7 @@ import { InvitePatientDto } from './dto/invite-patient.dto';
 import { customAlphabet } from 'nanoid';
 import * as bcrypt from 'bcrypt';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { AppUser, UserRole } from '@prisma/client';
+import { AppointmentStatus, AppUser, UserRole } from '@prisma/client';
 
 @Injectable()
 export class PatientService {
@@ -23,7 +23,7 @@ export class PatientService {
     practitionerId: string,
     invitePatientDto: InvitePatientDto,
   ) {
-    const { email, firstName, lastName, dateOfBirth, gender } =
+    const { email, phone, firstName, lastName, dateOfBirth, gender } =
       invitePatientDto;
 
     const existingUser = await this.prisma.appUser.findUnique({
@@ -51,6 +51,7 @@ export class PatientService {
     await this.prisma.appUser.create({
       data: {
         email,
+        phone,
         firstName,
         lastName,
         passwordHash: hashedPassword,
@@ -149,7 +150,7 @@ export class PatientService {
         patient: true,
       },
     });
-
+    console.log(patient);
     if (!patient) {
       throw new NotFoundException('Patient not found.');
     }
@@ -164,7 +165,7 @@ export class PatientService {
       }
     } else if (user.role === UserRole.Practitioner) {
       // Practitioners can only access patients they have invited.
-      if (patient.practitioner?.appUserId !== user.id) {
+      if (patient.patient?.practitionerId !== user.id) {
         throw new ForbiddenException(
           "You do not have permission to view this patient's details.",
         );
@@ -172,6 +173,23 @@ export class PatientService {
     }
     // Admins are implicitly allowed to proceed.
 
-    return patient;
+    // Find the last valid appointment for this patient
+    const lastAppointment = await this.prisma.appointment.findFirst({
+      where: {
+        patientId: patientId,
+        status: {
+          notIn: [AppointmentStatus.Cancelled, AppointmentStatus.NoShow],
+        },
+      },
+      orderBy: {
+        appointmentDateTime: 'desc',
+      },
+    });
+
+    // Combine the patient details with the last appointment date
+    return {
+      ...patient,
+      lastAppointmentDate: lastAppointment?.appointmentDateTime || null,
+    };
   }
 }
