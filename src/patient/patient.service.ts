@@ -138,30 +138,15 @@ export class PatientService {
     user: Omit<AppUser, 'passwordHash'>,
     patientId: string,
   ) {
-    const patient = await this.prisma.patient.findUnique({
-      where: { appUserId: patientId },
+    const patient = await this.prisma.appUser.findUnique({
+      where: { id: patientId },
       include: {
-        appUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            profileImageUrl: true,
-            joinedDate: true,
-          },
-        },
         practitioner: {
           include: {
-            appUser: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
-            },
-            clinic: true,
+            clinic: true, // Also include clinic details for practitioners
           },
         },
+        patient: true,
       },
     });
 
@@ -172,14 +157,14 @@ export class PatientService {
     // Authorization Logic
     if (user.role === UserRole.Patient) {
       // Patients can only access their own details.
-      if (patient.appUserId !== user.id) {
+      if (patient.id !== user.id) {
         throw new ForbiddenException(
           "You do not have permission to view this patient's details.",
         );
       }
     } else if (user.role === UserRole.Practitioner) {
       // Practitioners can only access patients they have invited.
-      if (patient.practitionerId !== user.id) {
+      if (patient.practitioner?.appUserId !== user.id) {
         throw new ForbiddenException(
           "You do not have permission to view this patient's details.",
         );
