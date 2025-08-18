@@ -10,6 +10,11 @@ import {
 } from 'class-validator';
 
 export class UpdateAppointmentDto {
+  @ApiPropertyOptional({ description: 'The new name for the appointment.' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @ApiPropertyOptional({
     description: 'The new date and time for the appointment.',
   })

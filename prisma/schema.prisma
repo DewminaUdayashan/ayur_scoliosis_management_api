@@ -65,6 +65,7 @@ model Clinic {
 
 model Appointment {
   id                  String            @id @default(uuid())
+  name                String            @default("")
   patient             AppUser           @relation("PatientAppointments", fields: [patientId], references: [id])
   patientId           String
   practitioner        AppUser           @relation("PractitionerAppointments", fields: [practitionerId], references: [id])
