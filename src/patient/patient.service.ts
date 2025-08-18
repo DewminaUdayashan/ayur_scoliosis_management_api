@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EmailService } from 'src/email/email.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -9,6 +10,7 @@ import { InvitePatientDto } from './dto/invite-patient.dto';
 import { customAlphabet } from 'nanoid';
 import * as bcrypt from 'bcrypt';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { AppointmentStatus, AppUser, UserRole } from '@prisma/client';
 
 @Injectable()
 export class PatientService {
@@ -21,7 +23,7 @@ export class PatientService {
     practitionerId: string,
     invitePatientDto: InvitePatientDto,
   ) {
-    const { email, firstName, lastName, dateOfBirth, gender } =
+    const { email, phone, firstName, lastName, dateOfBirth, gender } =
       invitePatientDto;
 
     const existingUser = await this.prisma.appUser.findUnique({
@@ -49,6 +51,7 @@ export class PatientService {
     await this.prisma.appUser.create({
       data: {
         email,
+        phone,
         firstName,
         lastName,
         passwordHash: hashedPassword,
@@ -123,6 +126,70 @@ export class PatientService {
         pageSize,
         totalPages,
       },
+    };
+  }
+
+  /**
+   * Retrieves the full details for a single patient by their ID.
+   * Enforces authorization rules based on the requester's role.
+   * @param user The authenticated user making the request.
+   * @param patientId The ID of the patient to retrieve.
+   */
+  async getPatientDetails(
+    user: Omit<AppUser, 'passwordHash'>,
+    patientId: string,
+  ) {
+    const patient = await this.prisma.appUser.findUnique({
+      where: { id: patientId },
+      include: {
+        practitioner: {
+          include: {
+            clinic: true, // Also include clinic details for practitioners
+          },
+        },
+        patient: true,
+      },
+    });
+
+    if (!patient) {
+      throw new NotFoundException('Patient not found.');
+    }
+
+    // Authorization Logic
+    if (user.role === UserRole.Patient) {
+      // Patients can only access their own details.
+      if (patient.id !== user.id) {
+        throw new ForbiddenException(
+          "You do not have permission to view this patient's details.",
+        );
+      }
+    } else if (user.role === UserRole.Practitioner) {
+      // Practitioners can only access patients they have invited.
+      if (patient.patient?.practitionerId !== user.id) {
+        throw new ForbiddenException(
+          "You do not have permission to view this patient's details.",
+        );
+      }
+    }
+    // Admins are implicitly allowed to proceed.
+
+    // Find the last valid appointment for this patient
+    const lastAppointment = await this.prisma.appointment.findFirst({
+      where: {
+        patientId: patientId,
+        status: {
+          notIn: [AppointmentStatus.Cancelled, AppointmentStatus.NoShow],
+        },
+      },
+      orderBy: {
+        appointmentDateTime: 'desc',
+      },
+    });
+
+    // Combine the patient details with the last appointment date
+    return {
+      ...patient,
+      lastAppointmentDate: lastAppointment?.appointmentDateTime || null,
     };
   }
 }

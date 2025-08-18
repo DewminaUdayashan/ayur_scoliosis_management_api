@@ -15,6 +15,7 @@ model AppUser {
   firstName                  String
   lastName                   String
   email                      String         @unique
+  phone                      String?
   passwordHash               String
   role                       UserRole
   profileImageUrl            String?
@@ -32,7 +33,6 @@ model AppUser {
 model Practitioner {
   appUser        AppUser @relation(fields: [appUserId], references: [id])
   appUserId      String  @id @unique
-  phone          String
   specialty      String
   medicalLicense String
   status         AccountStatus
