@@ -77,7 +77,7 @@ export class PatientService {
   }
 
   /**
-   * Retrieves a paginated list of patients invited by a specific practitioner.
+   * Retrieves a paginated list of AppUser objects for patients invited by a specific practitioner.
    * @param practitionerId The ID of the authenticated practitioner.
    * @param paginationDto DTO containing page and pageSize for pagination.
    */
@@ -85,34 +85,38 @@ export class PatientService {
     practitionerId: string,
     paginationDto: PaginationDto,
   ) {
-    // Ensure default values are used if page or pageSize are not provided.
     const page = paginationDto.page ?? 1;
     const pageSize = paginationDto.pageSize ?? 10;
     const skip = (page - 1) * pageSize;
 
+    const whereClause = {
+      role: UserRole.Patient,
+      patient: {
+        practitionerId: practitionerId,
+      },
+    };
+
     const [patients, totalCount] = await this.prisma.$transaction([
-      this.prisma.patient.findMany({
-        where: {
-          practitionerId: practitionerId,
-        },
-        include: {
-          appUser: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              profileImageUrl: true,
-            },
-          },
+      this.prisma.appUser.findMany({
+        where: whereClause,
+        // Select all fields from AppUser except for the password hash
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          profileImageUrl: true,
+          mustChangePassword: true,
+          joinedDate: true,
+          phone: true,
         },
         skip,
         take: pageSize,
       }),
-      this.prisma.patient.count({
-        where: {
-          practitionerId: practitionerId,
-        },
+      // Count based on the same filter
+      this.prisma.appUser.count({
+        where: whereClause,
       }),
     ]);
 
