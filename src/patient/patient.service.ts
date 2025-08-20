@@ -9,8 +9,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { InvitePatientDto } from './dto/invite-patient.dto';
 import { customAlphabet } from 'nanoid';
 import * as bcrypt from 'bcrypt';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { AppointmentStatus, AppUser, UserRole } from '@prisma/client';
+import { AppointmentStatus, AppUser, Prisma, UserRole } from '@prisma/client';
+import { GetPatientsDto } from './dto/get-patients.dto';
 
 @Injectable()
 export class PatientService {
@@ -77,29 +77,36 @@ export class PatientService {
   }
 
   /**
-   * Retrieves a paginated list of AppUser objects for patients invited by a specific practitioner.
+   * Retrieves a paginated and searchable list of AppUser objects for patients invited by a specific practitioner.
    * @param practitionerId The ID of the authenticated practitioner.
-   * @param paginationDto DTO containing page and pageSize for pagination.
+   * @param query DTO containing pagination and search parameters.
    */
   async getPatientsForPractitioner(
     practitionerId: string,
-    paginationDto: PaginationDto,
+    query: GetPatientsDto,
   ) {
-    const page = paginationDto.page ?? 1;
-    const pageSize = paginationDto.pageSize ?? 10;
+    const { page = 1, pageSize = 10, search } = query;
     const skip = (page - 1) * pageSize;
 
-    const whereClause = {
+    const whereClause: Prisma.AppUserWhereInput = {
       role: UserRole.Patient,
       patient: {
         practitionerId: practitionerId,
       },
     };
 
+    // If a search term is provided, add a case-insensitive search filter
+    if (search) {
+      whereClause.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
     const [patients, totalCount] = await this.prisma.$transaction([
       this.prisma.appUser.findMany({
         where: whereClause,
-        // Select all fields from AppUser except for the password hash
         select: {
           id: true,
           firstName: true,
@@ -114,7 +121,6 @@ export class PatientService {
         skip,
         take: pageSize,
       }),
-      // Count based on the same filter
       this.prisma.appUser.count({
         where: whereClause,
       }),

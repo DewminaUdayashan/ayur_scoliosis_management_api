@@ -22,7 +22,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { GetPatientsDto } from './dto/get-patients.dto';
 
 @ApiTags('Patient Management')
 @Controller('patient')
@@ -53,34 +53,25 @@ export class PatientController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.Practitioner)
   @ApiBearerAuth()
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
   @ApiQuery({
-    name: 'page',
+    name: 'search',
     required: false,
-    type: Number,
-    description: 'The page number.',
-  })
-  @ApiQuery({
-    name: 'pageSize',
-    required: false,
-    type: Number,
-    description: 'The number of items per page.',
+    type: String,
+    description: 'Search by patient name or email.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description:
-      'Returns a paginated list of patients for the authenticated practitioner.',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'User is not authenticated or not a practitioner.',
+    description: 'Returns a paginated list of patients.',
   })
   getPatients(
     @GetUser('id') practitionerId: string,
-    @Query() paginationDto: PaginationDto,
+    @Query() query: GetPatientsDto,
   ) {
     return this.patientService.getPatientsForPractitioner(
       practitionerId,
-      paginationDto,
+      query,
     );
   }
 
