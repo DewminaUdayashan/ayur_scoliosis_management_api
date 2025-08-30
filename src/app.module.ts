@@ -11,6 +11,9 @@ import { AppointmentModule } from './appointment/appointment.module';
 import { XRayController } from './xray/xray.controller';
 import { XRayService } from './xray/xray.service';
 import { XRayModule } from './xray/xray.module';
+import { PatientEventService } from './patient-event/patient-event.service';
+import { PatientEventController } from './patient-event/patient-event.controller';
+import { PatientEventModule } from './patient-event/patient-event.module';
 
 @Module({
   imports: [
@@ -24,8 +27,9 @@ import { XRayModule } from './xray/xray.module';
     ProfileModule,
     AppointmentModule,
     XRayModule,
+    PatientEventModule,
   ],
-  controllers: [AppController, XRayController],
-  providers: [AppService, XRayService],
+  controllers: [AppController, XRayController, PatientEventController],
+  providers: [AppService, XRayService, PatientEventService],
 })
 export class AppModule {}
