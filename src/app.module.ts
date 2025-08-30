@@ -8,6 +8,9 @@ import { ConfigModule } from '@nestjs/config';
 import { PatientModule } from './patient/patient.module';
 import { ProfileModule } from './profile/profile.module';
 import { AppointmentModule } from './appointment/appointment.module';
+import { XRayController } from './xray/xray.controller';
+import { XRayService } from './xray/xray.service';
+import { XRayModule } from './xray/xray.module';
 
 @Module({
   imports: [
@@ -20,8 +23,9 @@ import { AppointmentModule } from './appointment/appointment.module';
     PatientModule,
     ProfileModule,
     AppointmentModule,
+    XRayModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, XRayController],
+  providers: [AppService, XRayService],
 })
 export class AppModule {}
