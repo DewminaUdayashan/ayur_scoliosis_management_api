@@ -11,6 +11,14 @@ import {
 import { AppointmentType } from '@prisma/client';
 
 export class CreateAppointmentDto {
+  @ApiProperty({
+    description: 'A descriptive name for the appointment.',
+    example: 'Initial Consultation',
+  })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
   @ApiProperty({ description: 'The ID of the patient for the appointment.' })
   @IsString()
   @IsNotEmpty()

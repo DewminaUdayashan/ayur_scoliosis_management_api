@@ -120,8 +120,14 @@ export class AppointmentService {
     practitionerId: string,
     createAppointmentDto: CreateAppointmentDto,
   ) {
-    const { patientId, appointmentDateTime, durationInMinutes, type, notes } =
-      createAppointmentDto;
+    const {
+      name,
+      patientId,
+      appointmentDateTime,
+      durationInMinutes,
+      type,
+      notes,
+    } = createAppointmentDto;
 
     // Verify that the patient exists and belongs to the practitioner
     const patient = await this.prisma.patient.findFirst({
@@ -151,6 +157,7 @@ export class AppointmentService {
     // Create the appointment
     const newAppointment = await this.prisma.appointment.create({
       data: {
+        name,
         practitionerId,
         patientId,
         appointmentDateTime: proposedStartTime,
