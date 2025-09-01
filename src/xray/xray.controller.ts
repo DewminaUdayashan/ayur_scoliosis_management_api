@@ -6,17 +6,20 @@ import {
   Body,
   UseGuards,
   HttpStatus,
+  Get,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { AppUser, UserRole } from '@prisma/client';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { GetUser } from 'src/auth/decorators/user.decorator';
@@ -26,6 +29,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { extname } from 'path';
 import { XRayService } from './xray.service';
+import { GetXraysDto } from './dto/get-xrays.dto';
 
 @ApiTags('X-Ray Management')
 @Controller('xray')
@@ -33,6 +37,22 @@ import { XRayService } from './xray.service';
 @ApiBearerAuth()
 export class XRayController {
   constructor(private readonly xrayService: XRayService) {}
+
+  @Get()
+  @Roles(UserRole.Patient, UserRole.Practitioner)
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  @ApiQuery({ name: 'patientId', required: false, type: String })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Returns a paginated list of X-ray images.',
+  })
+  getXRays(
+    @GetUser() user: Omit<AppUser, 'passwordHash'>,
+    @Query() query: GetXraysDto,
+  ) {
+    return this.xrayService.getXRays(user, query);
+  }
 
   @Post('upload')
   @Roles(UserRole.Patient)

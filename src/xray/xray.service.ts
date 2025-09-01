@@ -2,14 +2,81 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UploadXrayDto } from './dto/upload-xray.dto';
-import { EventType } from '@prisma/client';
+import { AppUser, EventType, Prisma, UserRole } from '@prisma/client';
+import { GetXraysDto } from './dto/get-xrays.dto';
 
 @Injectable()
 export class XRayService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Retrieves a paginated list of X-ray images based on user role.
+   * - Patients see their own X-rays.
+   * - Admins can see any patient's X-rays by providing a patientId.
+   * @param user The authenticated user.
+   * @param query DTO for pagination and filtering.
+   */
+  async getXRays(user: Omit<AppUser, 'passwordHash'>, query: GetXraysDto) {
+    const { page = 1, pageSize = 10, patientId } = query;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.XRayImageWhereInput = {};
+
+    console.log('User Role:', user.role);
+
+    if (user.role === UserRole.Patient) {
+      where.patientEvent = { patientId: user.id };
+    } else if (user.role === UserRole.Practitioner) {
+      if (!patientId) {
+        throw new BadRequestException(
+          'patientId is required for Practitioner role.',
+        );
+      }
+      where.patientEvent = { patientId: patientId };
+    } else {
+      // Fallback for any other roles that are not permitted.
+      throw new ForbiddenException(
+        'You do not have permission to view X-ray images.',
+      );
+    }
+
+    const [xrays, totalCount] = await this.prisma.$transaction([
+      this.prisma.xRayImage.findMany({
+        where,
+        include: {
+          patientEvent: {
+            select: {
+              eventDateTime: true,
+            },
+          },
+        },
+        orderBy: {
+          patientEvent: {
+            eventDateTime: 'desc',
+          },
+        },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.xRayImage.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return {
+      data: xrays,
+      meta: {
+        totalCount,
+        currentPage: page,
+        pageSize,
+        totalPages,
+      },
+    };
+  }
 
   /**
    * Creates a patient event and saves the X-ray image details.
