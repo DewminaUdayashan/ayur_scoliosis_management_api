@@ -8,8 +8,6 @@ import { ConfigModule } from '@nestjs/config';
 import { PatientModule } from './patient/patient.module';
 import { ProfileModule } from './profile/profile.module';
 import { AppointmentModule } from './appointment/appointment.module';
-import { XRayController } from './xray/xray.controller';
-import { XRayService } from './xray/xray.service';
 import { XRayModule } from './xray/xray.module';
 import { PatientEventService } from './patient-event/patient-event.service';
 import { PatientEventController } from './patient-event/patient-event.controller';
@@ -29,7 +27,7 @@ import { PatientEventModule } from './patient-event/patient-event.module';
     XRayModule,
     PatientEventModule,
   ],
-  controllers: [AppController, XRayController, PatientEventController],
-  providers: [AppService, XRayService, PatientEventService],
+  controllers: [AppController, PatientEventController],
+  providers: [AppService, PatientEventService],
 })
 export class AppModule {}
