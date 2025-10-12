@@ -6,12 +6,22 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UploadXrayDto } from './dto/upload-xray.dto';
-import { AppUser, EventType, Prisma, UserRole } from '@prisma/client';
+import {
+  AppUser,
+  EventType,
+  Prisma,
+  UserRole,
+  AIClassificationType,
+} from '@prisma/client';
 import { GetXraysDto } from './dto/get-xrays.dto';
+import { ClassificationService } from './services/classification.service';
 
 @Injectable()
 export class XRayService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly classificationService: ClassificationService,
+  ) {}
 
   /**
    * Retrieves a paginated list of X-ray images based on user role.
@@ -124,10 +134,111 @@ export class XRayService {
       },
     });
 
+    // Start background classification (fire and forget)
+    this.classifyXrayInBackground(file.path, patientEvent.id, patientId).catch(
+      (error) => {
+        console.error('Background classification failed:', error);
+      },
+    );
+
     return {
       code: 'XRAY_UPLOAD_SUCCESS',
       message: 'X-ray uploaded successfully.',
       data: patientEvent,
     };
+  }
+
+  /**
+   * Background process to classify the uploaded X-ray and create classification events
+   */
+  private async classifyXrayInBackground(
+    imagePath: string,
+    xrayEventId: string,
+    patientId: string,
+  ): Promise<void> {
+    try {
+      console.log(
+        `Starting background classification for X-ray event: ${xrayEventId}`,
+      );
+
+      const classificationResult =
+        await this.classificationService.classifyXray(imagePath);
+
+      // Find the patient's record to get their practitioner's ID
+      const patient = await this.prisma.patient.findUnique({
+        where: { appUserId: patientId },
+      });
+
+      if (!patient) {
+        throw new Error('Patient record not found during classification.');
+      }
+
+      // Map classification results to database enum
+      const classificationType = this.mapClassificationToEnum(
+        classificationResult.condition.predicted_class,
+        classificationResult.curve?.predicted_class,
+      );
+
+      // Extract confidence score (remove % and convert to decimal)
+      const confidenceScore =
+        parseFloat(classificationResult.condition.confidence.replace('%', '')) /
+        100;
+
+      // Create a classification event with AIClassificationResult
+      await this.prisma.patientEvent.create({
+        data: {
+          patientId,
+          createdByPractitionerId: patient.practitionerId,
+          eventType: EventType.AIClassification,
+          eventDateTime: new Date(),
+          isSharedWithPatient: true,
+          aiClassificationResult: {
+            create: {
+              classificationResult: classificationType,
+              confidenceScore: confidenceScore,
+              notes: classificationResult.curve
+                ? `Curve type: ${classificationResult.curve.predicted_class} (${classificationResult.curve.confidence} confidence)`
+                : null,
+            },
+          },
+        },
+      });
+
+      console.log(
+        `Background classification completed for X-ray event: ${xrayEventId}`,
+      );
+    } catch (error) {
+      console.error(
+        `Background classification failed for X-ray event ${xrayEventId}:`,
+        error,
+      );
+      // Don't throw here as this is a background process
+    }
+  }
+
+  /**
+   * Maps Flask API classification results to database enum values
+   */
+  private mapClassificationToEnum(
+    condition: string,
+    curveType?: string,
+  ): AIClassificationType {
+    if (condition === 'normal') {
+      return AIClassificationType.NoScoliosisDetected;
+    }
+
+    if (condition === 'scoliosis') {
+      if (curveType === 'C-Curve') {
+        return AIClassificationType.ScoliosisCCurve;
+      }
+      if (curveType === 'S-Curve') {
+        return AIClassificationType.ScoliosisSCurve;
+      }
+      // Default to C-curve if curve type is not determined
+      return AIClassificationType.ScoliosisCCurve;
+    }
+
+    // Fallback
+    return AIClassificationType.AnalysisFailed;
   }
 }
