@@ -28,6 +28,7 @@ model AppUser {
   notifications              Notification[] @relation("UserNotifications")
   eventsAsPatient            PatientEvent[] @relation("EventsForPatient")
   eventsCreatedBy            PatientEvent[] @relation("EventsCreatedByPractitioner")
+  measurementsCreated        XRayMeasurement[] @relation("MeasurementCreatedBy")
 }
 
 model Practitioner {
@@ -109,11 +110,32 @@ model PatientEvent {
 }
 
 model XRayImage {
-  id             String       @id @default(uuid())
-  patientEvent   PatientEvent @relation(fields: [patientEventId], references: [id])
+  id             String              @id @default(uuid())
+  patientEvent   PatientEvent        @relation(fields: [patientEventId], references: [id])
   patientEventId String
   imageUrl       String
   notes          String?
+  measurements   XRayMeasurement[]
+}
+
+model XRayMeasurement {
+  id            String      @id @default(uuid())
+  xrayImage     XRayImage   @relation(fields: [xrayImageId], references: [id], onDelete: Cascade)
+  xrayImageId   String
+  line1StartX   Decimal
+  line1StartY   Decimal
+  line1EndX     Decimal
+  line1EndY     Decimal
+  line2StartX   Decimal
+  line2StartY   Decimal
+  line2EndX     Decimal
+  line2EndY     Decimal
+  cobbAngle     Decimal
+  createdBy     AppUser     @relation("MeasurementCreatedBy", fields: [createdById], references: [id])
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  notes         String?
 }
 
 model AIClassificationResult {

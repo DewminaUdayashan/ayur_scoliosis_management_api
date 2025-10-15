@@ -8,6 +8,9 @@ import {
   HttpStatus,
   Get,
   Query,
+  Param,
+  Put,
+  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -30,13 +33,21 @@ import { randomBytes } from 'crypto';
 import { extname } from 'path';
 import { XRayService } from './xray.service';
 import { GetXraysDto } from './dto/get-xrays.dto';
+import {
+  CreateMeasurementDto,
+  UpdateMeasurementDto,
+} from './dto/measurement.dto';
+import { MeasurementService } from './services/measurement.service';
 
 @ApiTags('X-Ray Management')
 @Controller('xray')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class XRayController {
-  constructor(private readonly xrayService: XRayService) {}
+  constructor(
+    private readonly xrayService: XRayService,
+    private readonly measurementService: MeasurementService,
+  ) {}
 
   @Get()
   @Roles(UserRole.Patient, UserRole.Practitioner)
@@ -104,5 +115,97 @@ export class XRayController {
     @Body() uploadXrayDto: UploadXrayDto,
   ) {
     return this.xrayService.uploadXrayImage(patientId, file, uploadXrayDto);
+  }
+
+  @Post('measurements')
+  @Roles(UserRole.Practitioner, UserRole.Admin)
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description:
+      'Measurements saved successfully. Previous measurements replaced.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'X-ray image not found.',
+  })
+  createMeasurements(
+    @GetUser('id') practitionerId: string,
+    @Body() createMeasurementDto: CreateMeasurementDto,
+  ) {
+    return this.measurementService.createMeasurements(
+      createMeasurementDto,
+      practitionerId,
+    );
+  }
+
+  @Get('measurements/:xrayImageId')
+  @Roles(UserRole.Patient, UserRole.Practitioner, UserRole.Admin)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Returns measurements for the specified X-ray image.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'X-ray image not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Access denied to this X-ray image.',
+  })
+  getMeasurements(
+    @Param('xrayImageId') xrayImageId: string,
+    @GetUser() user: Omit<AppUser, 'passwordHash'>,
+  ) {
+    return this.measurementService.getMeasurementsByXrayId(xrayImageId, user);
+  }
+
+  @Put('measurements/:measurementId')
+  @Roles(UserRole.Practitioner, UserRole.Admin)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Measurement updated successfully.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Measurement not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'You can only update measurements you created.',
+  })
+  updateMeasurement(
+    @Param('measurementId') measurementId: string,
+    @GetUser('id') practitionerId: string,
+    @Body() updateMeasurementDto: UpdateMeasurementDto,
+  ) {
+    return this.measurementService.updateMeasurement(
+      measurementId,
+      updateMeasurementDto,
+      practitionerId,
+    );
+  }
+
+  @Delete('measurements/:measurementId')
+  @Roles(UserRole.Practitioner, UserRole.Admin)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Measurement deleted successfully.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Measurement not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'You can only delete measurements you created.',
+  })
+  deleteMeasurement(
+    @Param('measurementId') measurementId: string,
+    @GetUser('id') practitionerId: string,
+  ) {
+    return this.measurementService.deleteMeasurement(
+      measurementId,
+      practitionerId,
+    );
   }
 }
