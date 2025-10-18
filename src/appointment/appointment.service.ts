@@ -7,18 +7,26 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
-import { AppointmentStatus, AppUser, Prisma, UserRole } from '@prisma/client';
+import {
+  AppointmentStatus,
+  AppointmentType,
+  AppUser,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { EmailService } from 'src/email/email.service';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
 import { RespondToAppointmentDto } from './dto/respond-to-appointment.dto';
 import { GetAppointmentDatesDto } from './dto/get-appointment-dates.dto';
+import { VideoCallService } from 'src/video-call/video-call.service';
 
 @Injectable()
 export class AppointmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly videoCallService: VideoCallService,
   ) {}
 
   /**
@@ -167,6 +175,11 @@ export class AppointmentService {
         status: AppointmentStatus.PendingPatientConfirmation, // Set initial status
       },
     });
+
+    // If appointment is remote, create a video call room
+    if (type === 'Remote') {
+      await this.videoCallService.createRoomForAppointment(newAppointment.id);
+    }
 
     return newAppointment;
   }

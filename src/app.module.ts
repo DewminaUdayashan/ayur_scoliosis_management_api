@@ -12,6 +12,7 @@ import { XRayModule } from './xray/xray.module';
 import { PatientEventService } from './patient-event/patient-event.service';
 import { PatientEventController } from './patient-event/patient-event.controller';
 import { PatientEventModule } from './patient-event/patient-event.module';
+import { VideoCallModule } from './video-call/video-call.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PatientEventModule } from './patient-event/patient-event.module';
     AppointmentModule,
     XRayModule,
     PatientEventModule,
+    VideoCallModule,
   ],
   controllers: [AppController, PatientEventController],
   providers: [AppService, PatientEventService],

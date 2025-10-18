@@ -76,6 +76,7 @@ model Appointment {
   type                AppointmentType
   status              AppointmentStatus
   notes               String?
+  videoCallRoom       VideoCallRoom?
   patientEvent        PatientEvent[]
 }
 
@@ -178,6 +179,20 @@ model RevokedToken {
   expiresAt DateTime // When the token naturally expires
 }
 
+model VideoCallRoom {
+  id                  String              @id @default(uuid())
+  appointment         Appointment         @relation(fields: [appointmentId], references: [id])
+  appointmentId       String              @unique
+  roomId              String              @unique
+  status              VideoCallStatus     @default(Waiting)
+  practitionerJoined  Boolean             @default(false)
+  patientJoined       Boolean             @default(false)
+  startedAt           DateTime?
+  endedAt             DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+}
+
 
 enum UserRole {
   Patient
@@ -211,6 +226,12 @@ enum EventType {
   AIClassification
   CobbAngleMeasurement
   SessionNote
+}
+
+enum VideoCallStatus {
+  Waiting
+  InProgress
+  Ended
 }
 
 enum AIClassificationType {
