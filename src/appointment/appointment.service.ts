@@ -7,13 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
-import {
-  AppointmentStatus,
-  AppointmentType,
-  AppUser,
-  Prisma,
-  UserRole,
-} from '@prisma/client';
+import { AppointmentStatus, AppUser, Prisma, UserRole } from '@prisma/client';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { EmailService } from 'src/email/email.service';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
@@ -503,5 +497,100 @@ export class AppointmentService {
     ];
 
     return uniqueDates;
+  }
+
+  /**
+   * Marks an appointment as completed.
+   * Only practitioners can complete appointments.
+   */
+  async completeAppointment(practitionerId: string, appointmentId: string) {
+    // Verify that the appointment exists and belongs to this practitioner
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: true,
+        practitioner: true,
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found.');
+    }
+
+    if (appointment.practitionerId !== practitionerId) {
+      throw new ForbiddenException(
+        'You do not have permission to complete this appointment.',
+      );
+    }
+
+    // Check if appointment is in a valid state to be completed
+    if (appointment.status === AppointmentStatus.Completed) {
+      throw new ConflictException('This appointment is already completed.');
+    }
+
+    if (appointment.status === AppointmentStatus.Cancelled) {
+      throw new ConflictException('Cannot complete a cancelled appointment.');
+    }
+
+    // Update appointment status to Completed
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        status: AppointmentStatus.Completed,
+      },
+      include: {
+        patient: true,
+        practitioner: true,
+      },
+    });
+
+    // Send notification to patient
+    await this.emailService.sendAppointmentCompletedEmail(
+      appointment.patient.email,
+      `${appointment.patient.firstName} ${appointment.patient.lastName}`,
+      `${appointment.practitioner.firstName} ${appointment.practitioner.lastName}`,
+      appointment.appointmentDateTime,
+    );
+
+    return updatedAppointment;
+  }
+
+  /**
+   * Updates appointment notes.
+   * Only practitioners can update notes for their own appointments.
+   */
+  async updateAppointmentNotes(
+    practitionerId: string,
+    appointmentId: string,
+    notes: string,
+  ) {
+    // Verify that the appointment exists and belongs to this practitioner
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found.');
+    }
+
+    if (appointment.practitionerId !== practitionerId) {
+      throw new ForbiddenException(
+        'You do not have permission to update notes for this appointment.',
+      );
+    }
+
+    // Update appointment notes
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        notes,
+      },
+      include: {
+        patient: true,
+        practitioner: true,
+      },
+    });
+
+    return updatedAppointment;
   }
 }

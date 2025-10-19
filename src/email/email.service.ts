@@ -268,4 +268,45 @@ export class EmailService {
     `;
     await this.sendEmail(practitionerEmail, subject, htmlContent);
   }
+
+  /**
+   * Sends an email to the patient when their appointment is marked as completed.
+   */
+  async sendAppointmentCompletedEmail(
+    patientEmail: string,
+    patientName: string,
+    practitionerName: string,
+    appointmentDate: Date,
+  ): Promise<void> {
+    const formattedDate = appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const subject = 'Appointment Completed - Ayurveda Clinic';
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">Appointment Completed</h2>
+        <p>Hello ${patientName},</p>
+        <p>Your appointment with Dr. ${practitionerName} has been marked as completed.</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
+          <p style="margin: 10px 0 0;"><strong>Practitioner:</strong> Dr. ${practitionerName}</p>
+          <p style="margin: 10px 0 0;"><strong>Status:</strong> 
+            <span style="color: #28a745; font-weight: bold;">COMPLETED</span>
+          </p>
+        </div>
+        <p>Thank you for visiting our clinic. You can view your appointment history and any notes from this session in your patient portal.</p>
+        <p style="margin-top: 30px; color: #666; font-size: 12px; text-align: center;">
+          If you have any questions, please contact our clinic.
+        </p>
+      </div>
+    `;
+    await this.sendEmail(patientEmail, subject, htmlContent);
+  }
 }

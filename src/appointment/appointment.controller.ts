@@ -28,6 +28,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { GetAppointmentsDto } from './dto/get-appointments.dto';
 import { RespondToAppointmentDto } from './dto/respond-to-appointment.dto';
 import { GetAppointmentDatesDto } from './dto/get-appointment-dates.dto';
+import { UpdateAppointmentNotesDto } from './dto/update-appointment-notes.dto';
 
 @ApiTags('Appointment Management')
 @Controller('appointments')
@@ -241,6 +242,64 @@ export class AppointmentController {
       patientId,
       appointmentId,
       respondDto,
+    );
+  }
+
+  @Patch(':id/complete')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.Practitioner)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The appointment has been successfully marked as completed.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Appointment not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'You do not have permission to complete this appointment.',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Appointment is already completed or has been cancelled.',
+  })
+  completeAppointment(
+    @GetUser('id') practitionerId: string,
+    @Param('id') appointmentId: string,
+  ) {
+    return this.appointmentService.completeAppointment(
+      practitionerId,
+      appointmentId,
+    );
+  }
+
+  @Patch(':id/notes')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.Practitioner)
+  @ApiBody({ type: UpdateAppointmentNotesDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'The appointment notes have been successfully updated.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Appointment not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description:
+      'You do not have permission to update notes for this appointment.',
+  })
+  updateAppointmentNotes(
+    @GetUser('id') practitionerId: string,
+    @Param('id') appointmentId: string,
+    @Body() updateNotesDto: UpdateAppointmentNotesDto,
+  ) {
+    return this.appointmentService.updateAppointmentNotes(
+      practitionerId,
+      appointmentId,
+      updateNotesDto.notes,
     );
   }
 }
