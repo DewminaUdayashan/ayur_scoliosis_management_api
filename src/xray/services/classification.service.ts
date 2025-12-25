@@ -139,7 +139,7 @@ export class ClassificationService {
         const buffer = Buffer.concat(chunks);
         const blob = new Blob([buffer]);
         formData.append('file', blob, 'xray.jpg');
-        formData.append('enable_cropping', 'false');
+        formData.append('enable_cropping', 'true');
         resolve(formData);
       });
       fileStream.on('error', reject);
